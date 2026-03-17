@@ -1,0 +1,370 @@
+---
+title: "Krill Size"
+subtitle: "Changes in krill size in CCE"
+author: Lala Movsesian
+format: html
+---
+
+# Setup
+
+loading packages and data
+
+```{r}
+library(here)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+
+raw_data <- read_excel(here::here("data", "raw", "krill_size.xlsx"))
+```
+
+# Tidying data
+
+### Date
+
+Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used "cruise" column as reference rather than "date", since some sampling is done early in the next month (e.g. sampling date is 7/1 but it's from june cruise)
+
+```{r}
+#create column with year and month
+df <- raw_data %>%
+
+  mutate(base_date = make_date(
+      year  = 2000 + as.numeric(substr(cruise, 4, 5)),
+      month = as.numeric(substr(cruise, 6, 7)),
+      day   = 1))%>% 
+ #move column 
+  relocate(base_date, .after = date)
+
+```
+
+### Life Stage
+
+Changing all imm m to m, and imm f to f for consistency, since some samples include rows labeled as m in lower than 11mm ranges.
+
+```{r}
+df <- df %>%
+  mutate(
+    type = case_when(
+      type == "imm m" ~ "m",
+      type == "imm f" ~ "f",
+      TRUE ~ type))
+```
+
+### Species
+
+Filtering data: only including species of interest, only including juv, f and m
+
+```{r}
+df <- df %>%
+  filter(species_name %in% c(
+    "EUP Euphausia pacifica",
+    "EUP Nematoscelis difficilis",
+    "EUP Thysanoessa spinifera")) %>%
+  
+  # Keep only relevant types
+  filter(type %in% c("juv", "f", "m"))
+```
+
+Adding code names for convenience
+
+```{r}
+df <- df %>%
+  mutate(
+    species_code = case_when(
+      species_name == "EUP Euphausia pacifica" ~ "EPAC",
+      species_name == "EUP Thysanoessa spinifera" ~ "TSPIN",
+      species_name == "EUP Nematoscelis difficilis" ~ "NDIF")) %>%
+  #move column
+relocate(species_code, .after = species_name)
+```
+
+# Temporal changes in krill size
+
+Testing interannual variability using Linear Mixed Models because:
+
+-   nested data (no need to collapse data to means)
+
+-   not independent data (avoiding pseudoreplication and inflated significance)
+
+-   considering uneven sampling effort
+
+-   more suitable for different months and different numbers of cruises in year
+
+In this model, year is used as fixed effect and cruise/jar as random factors, therefore testing if variability among years is larger than within-jar/cruise.
+
+downsides: Some years have more cruises/samples than others, which can influence the precision Years are not considered directional, and this model will not show overall trends. Considering that the main goal is to identify changes in response to climate anomalies, this is not a problem.
+
+## uneven sampling effort
+
+checking number of jars per cruise:
+
+```{r}
+jars_per_cruise <- df %>%
+  group_by(base_date) %>%
+  summarise(n_jars = n_distinct(jar))
+```
+
+checking number of jars per line per cruise
+
+```{r}
+jars_per_cruise_line <- df %>%
+  group_by(base_date, line) %>%
+  summarise(n_jars = n_distinct(jar), .groups = "drop")
+```
+
+checking cruises with lines that have more or less than 3 samples:
+
+```{r}
+problem_cruises <- df %>%
+  group_by(base_date, line) %>%
+  summarise(n_jars = n_distinct(jar), .groups = "drop") %>%
+  filter(n_jars != 3)
+```
+
+### Months
+
+checking cruises per months:
+
+```{r}
+cruise_per_month <- df %>%
+    group_by(month = month(base_date)) %>%
+  summarise(n_cruises = n_distinct(base_date))
+```
+
+Months of sampling represent seasons and have important data regarding seasonal variability. Months with sufficient amount of data will be used as random factors.
+
+### Lines
+
+checking cruises that don't have all 3 lines
+
+```{r}
+#create a list of number of lines per cruise
+lines_per_cruise <- df %>%
+  group_by(base_date) %>%
+  summarise(n_lines = n_distinct(line), .groups = "drop") %>%
+#check which cruises are missing lines
+  filter(n_lines < 3)
+
+#find out which lines are missing
+missing_lines <- df %>%
+  distinct(base_date, line) %>%  # which lines exist
+  complete(base_date, line = c("2", "4", "6")) %>%  # create all expected combos
+  anti_join(df %>% distinct(base_date, line), by = c("base_date", "line"))
+```
+
+### Station
+
+checking stations of each line across the years, revealing multiple station per line, some N/A, some have ".", some "TT". conclusion: do not use station column as random factors
+
+```{r}
+station_per_line <- df %>%
+  group_by(line, station) %>%
+  summarise(n_jars = n_distinct(jar), .groups = "drop") 
+```
+
+### Diel
+
+estimating how many night cruises by listing cruises with multiple tows (\>3 samples per line), don't have time data yet. Since number of night samples is way lower than day, night samples will be excluded from the model.
+
+```{r}
+night_cruises <- df %>%
+  group_by(base_date, line) %>%
+  summarise(n_jars = n_distinct(jar), .groups = "drop") %>%
+  filter(n_jars > 3)
+```
+
+Using mid point size per row with length data only per type (juv/f/m) per jar per size range
+
+```{r}
+df_lmm <- df %>%
+  mutate(length_mid = (length_l + length_h) / 2) %>%
+relocate(length_mid, .after = length_h)
+```
+
+Calculating one size per type per jar
+
+```{r}
+df_lmm <- df_lmm %>%
+  group_by(species_code, jar, type, base_date) %>%
+  summarise(length_weighted = sum(length_mid * tot_num) / sum(tot_num),
+    .groups = "drop")
+```
+
+excluding cruises from feb (n=1), apr (n=2), and oct (n=3)
+
+```{r}
+df_lmm <- df_lmm %>%
+  filter(!month(base_date) %in% c(2, 4, 10))
+
+```
+
+## Euphausia pacifica
+
+filtering species and N/As:
+
+```{r}
+epac_df <- df_lmm %>%
+  filter(species_code == "EPAC") %>%
+  filter(!is.na(length_weighted))
+```
+
+Creating separate dataframe for adults and juveniles:
+
+```{r}
+epac_adult <- epac_df %>%
+  filter(type %in% c("f", "m"))
+
+epac_juv <- epac_df %>%
+  filter(type == "juv")
+```
+
+figure showing the size of adults over the years:
+
+```{r}
+ggplot(epac_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
+
+  theme_minimal(base_size = 13) +
+
+  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+figure showing the size of juveniles over the years:
+
+```{r}
+ggplot(epac_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)") +
+
+  theme_minimal(base_size = 13) +
+theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Thysanoessa spinifera
+
+filtering species and N/As:
+
+```{r}
+tspin_df <- df_lmm %>%
+  filter(species_code == "TSPIN") %>%
+  filter(!is.na(length_weighted))
+```
+
+Creating separate dataframe for adults and juveniles:
+
+```{r}
+tspin_adult <- tspin_df %>%
+  filter(type %in% c("f", "m"))
+
+tspin_juv <- tspin_df %>%
+  filter(type == "juv")
+```
+
+figure showing the size of adults over the years:
+
+```{r}
+ggplot(tspin_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
+
+  theme_minimal(base_size = 13) +
+
+  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+figure showing the size of juveniles over the years:
+
+```{r}
+ggplot(tspin_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)") +
+
+  theme_minimal(base_size = 13) +
+theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Nematoscelis difficilis
+
+filtering species and N/As:
+
+```{r}
+ndif_df <- df_lmm %>%
+  filter(species_code == "NDIF") %>%
+  filter(!is.na(length_weighted))
+```
+
+Creating separate dataframe for adults and juveniles:
+
+```{r}
+ndif_adult <- ndif_df %>%
+  filter(type %in% c("f", "m"))
+
+ndif_juv <- ndif_df %>%
+  filter(type == "juv")
+```
+
+figure showing the size of adults over the years:
+
+```{r}
+ggplot(ndif_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
+
+  theme_minimal(base_size = 13) +
+
+  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+figure showing the size of juveniles over the years:
+
+```{r}
+ggplot(ndif_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
+
+  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
+  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+
+  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", size = 3) +
+
+  labs(x = "Year", y = "Weighted mean body length (mm)") +
+
+  theme_minimal(base_size = 13) +
+theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
