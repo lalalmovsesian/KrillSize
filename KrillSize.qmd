@@ -14,6 +14,8 @@ library(here)
 library(readxl)
 library(tidyverse)
 library(ggplot2)
+library(lme4)
+library(lmerTest) 
 
 raw_data <- read_excel(here::here("data", "raw", "krill_size.xlsx"))
 ```
@@ -253,6 +255,39 @@ ggplot(epac_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
 
   theme_minimal(base_size = 13) +
 theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Running model with epac adults: first checking variables
+
+```{r}
+epac_adult <- epac_adult %>%
+  mutate(year = factor(year(base_date)),
+    cruise = factor(base_date),
+    jar = factor(jar),
+    type = factor(type))
+```
+
+running mixed models:
+
+```{r}
+model_epac <- lmer(length_weighted ~ year + type + (1 | cruise/jar),
+  data = epac_adult)
+
+summary(model_epac)
+```
+
+running anova
+
+```{r}
+anova(model_epac)
+```
+
+making a plot for years:
+
+```{r}
+library(emmeans)
+year_means <- emmeans(model_epac, ~ year)
+plot(year_means)
 ```
 
 ## Thysanoessa spinifera
