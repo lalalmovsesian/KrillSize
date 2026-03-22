@@ -16,6 +16,7 @@ library(tidyverse)
 library(ggplot2)
 library(lme4)
 library(lmerTest) 
+library(viridis)
 
 raw_data <- read_excel(here::here("data", "raw", "krill_size.xlsx"))
 moci_data <- read.csv(here::here("data", "raw", "CaliforniaMOCI_long.csv"))
@@ -27,7 +28,6 @@ Extracting year and month information from the cruise column and converting it t
 
 ```{r}
 data_date <- raw_data %>%
-
   mutate(base_date = make_date(
       year  = 2000 + as.numeric(substr(cruise, 4, 5)),
       month = as.numeric(substr(cruise, 6, 7)),
@@ -41,7 +41,6 @@ excluding cruises from feb (n=1), apr (n=2), and oct (n=3)
 ```{r}
 df <- data_date %>%
   filter(!month(base_date) %in% c(2, 4, 10))
-
 ```
 
 ### Life Stage
@@ -68,7 +67,6 @@ df <- df %>%
     "EUP Nematoscelis difficilis",
     "EUP Thysanoessa spinifera")) %>%
   
-  # Keep only relevant types
   filter(type %in% c("juv", "f", "m"))
 ```
 
@@ -81,7 +79,7 @@ df <- df %>%
       species_name == "EUP Euphausia pacifica" ~ "EPAC",
       species_name == "EUP Thysanoessa spinifera" ~ "TSPIN",
       species_name == "EUP Nematoscelis difficilis" ~ "NDIF")) %>%
-  #move column
+
 relocate(species_code, .after = species_name)
 ```
 
@@ -103,7 +101,10 @@ df <- df %>%
     moci_data %>%
       select(Year, Season, North.California..38.42N.),
     by = c("Year", "Season")) %>%
-  rename(moci = North.California..38.42N.)
+  rename(moci = North.California..38.42N.) %>%
+  rename(season = Season) %>%
+  select(-Year, -Month) %>%
+  relocate(season, .after = base_date)
 ```
 
 
@@ -188,34 +189,103 @@ station_per_line <- df %>%
 
 # Size Calculation
 
-Calculating volume of krill considering each to be the shape of a cone and using cone volume formula. for each size range, d is median weight and h is median length. 
 
-Adding columns for median weigth (d) and median length (h)
-Using mid point size per row with length data only per type (juv/f/m) per jar per size range
+Adding columns for width and length midpoint for each size range in each type:
 
 ```{r}
-df_lmm <- df %>%
+df <- df %>%
   mutate(length_mid = (length_l + length_h) / 2) %>%
-relocate(length_mid, .after = length_h)
+  mutate(width_mid = (width_l + width_h) / 2) %>%
+relocate(length_mid, .after = length_h) %>%
+  relocate(width_mid, .after = width_h)
 ```
 
-Calculating one size per type per jar
+Calculating volume per each row by considering krill cone-shaped, using width_mid as diameter and length_mid as height:
 
 ```{r}
+df <- df %>%
+  mutate(volume = (1/3) * pi * (width_mid / 2)^2 * length_mid) %>%
+  relocate(volume, .after = width_mid) %>%
+  filter(!is.na(volume))
+```
+
+Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)
+```{r}
+df_vol <- df %>%
+  group_by(species_code, jar, type, base_date, moci) %>%
+  filter(!is.na(tot_num)) %>%
+  summarise(volume_weighted = sum(volume * tot_num) / sum(tot_num),
+    .groups = "drop")
+```
+
+
+LENGTH: Calculating one size per type per jar
+
+```{r eval=FALSE}
 df_lmm <- df_lmm %>%
   group_by(species_code, jar, type, base_date, moci) %>%
   summarise(length_weighted = sum(length_mid * tot_num) / sum(tot_num),
     .groups = "drop")
 ```
 
-## Euphausia pacifica
 
-filtering species and N/As:
+# Figures
+
+Creating a plot function for all species' adults:
 
 ```{r}
-epac_df <- df_lmm %>%
-  filter(species_code == "EPAC") %>%
-  filter(!is.na(length_weighted))
+plot_species <- function(data, species_name = NULL) {
+  data <- data %>%
+    mutate(year = year(base_date))
+
+  vol_min <- min(data$volume_weighted, na.rm = TRUE)
+  vol_max <- max(data$volume_weighted, na.rm = TRUE)
+  vol_mid <- mean(c(vol_min, vol_max))
+
+  moci_max <- max(abs(data$moci), na.rm = TRUE)
+
+  scale_factor <- (vol_max - vol_min) / (2 * moci_max)
+
+  ggplot(data, aes(x = factor(year))) +
+
+    stat_summary(aes(y = volume_weighted, color = type, group = type),
+                 fun = mean, geom = "line", linewidth = 1) +
+
+    stat_summary(aes(y = volume_weighted, color = type),
+                 fun = mean, geom = "point", size = 3) +
+
+    stat_summary(aes(y = (moci * scale_factor) + vol_mid, group = 1),
+                 fun = mean, geom = "line",
+                 color = viridis::viridis(5)[2],
+                 linewidth = 1.2, linetype = "dashed") +
+
+    scale_y_continuous(
+      name = "Weighted mean body volume (mm)",
+      sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
+                          name = "MOCI")) +
+
+    scale_color_viridis_d(option = "D", end = 0.8) + 
+
+    labs(
+      x = "Year",
+      color = "Type",
+      title = species_name) +
+
+    theme_minimal(base_size = 13) +
+    theme(
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+
+## Euphausia pacifica
+
+filtering species:
+
+```{r}
+epac_df <- df_vol %>%
+  filter(species_code == "EPAC")
 ```
 
 Creating separate dataframe for adults and juveniles:
@@ -228,49 +298,46 @@ epac_juv <- epac_df %>%
   filter(type == "juv")
 ```
 
-### Figures
 
-figure showing the size of adults over the years:
-
-TEST
 ```{r}
-epac_adult <- epac_adult %>%
+plot_species(epac_adult)
+```
+
+
+
+Plot for juves:
+```{r}
+epac_juv <- epac_juv %>%
   mutate(year = year(base_date))
 
 # ranges
-len_min <- min(epac_adult$length_weighted, na.rm = TRUE)
-len_max <- max(epac_adult$length_weighted, na.rm = TRUE)
-len_mid <- mean(c(len_min, len_max))
+vol_min <- min(epac_juv$volume_weighted, na.rm = TRUE)
+vol_max <- max(epac_juv$volume_weighted, na.rm = TRUE)
+vol_mid <- mean(c(vol_min, vol_max))
 
-moci_max <- max(abs(epac_adult$moci), na.rm = TRUE)
+moci_max <- max(abs(epac_juv$moci), na.rm = TRUE)
 
-# scaling factor (fit MOCI into length range nicely)
-scale_factor <- (len_max - len_min) / (2 * moci_max)
+scale_factor <- (vol_max - vol_min) / (2 * moci_max)
 
-ggplot(epac_adult, aes(x = factor(year))) +
+ggplot(epac_juv, aes(x = factor(year))) +
 
-  # jitter
-  #geom_jitter(aes(y = length_weighted, color = type), width = 0.2, alpha = 0.4, size = 1) +
-
-  # means
-  stat_summary(aes(y = length_weighted, color = type, group = type),
+  stat_summary(aes(y = volume_weighted, color = type, group = type),
                fun = mean, geom = "line", linewidth = 1) +
 
-  stat_summary(aes(y = length_weighted, color = type),
+  stat_summary(aes(y = volume_weighted, color = type),
                fun = mean, geom = "point", size = 3) +
 
   # MOCI (centered + scaled + shifted)
-  stat_summary(aes(y = (moci * scale_factor) + len_mid, group = 1),
+  stat_summary(aes(y = (moci * scale_factor) + vol_mid, group = 1),
                fun = mean, geom = "line",
                color = "black", linewidth = 1.2, linetype = "dashed") +
 
   scale_y_continuous(
-    name = "Weighted mean body length (mm)",
-    sec.axis = sec_axis(~ (. - len_mid) / scale_factor,
-                        name = "MOCI")
-  ) +
+    name = "Weighted mean body volume (mm)",
+    sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
+                        name = "MOCI")) +
 
-  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
+  scale_color_manual(values = c("juv" = "#E64B35")) +
 
   labs(x = "Year", color = "Type") +
 
@@ -282,22 +349,33 @@ ggplot(epac_adult, aes(x = factor(year))) +
 
 
 
-figure showing the size of juveniles over the years:
+
+
+## Thysanoessa spinifera
+
+filtering species:
 
 ```{r}
-ggplot(epac_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
-
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-
-  labs(x = "Year", y = "Weighted mean body length (mm)") +
-
-  theme_minimal(base_size = 13) +
-theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+tspin_df <- df_vol %>%
+  filter(species_code == "TSPIN")
 ```
+
+Creating separate dataframe for adults and juveniles:
+
+```{r}
+tspin_adult <- tspin_df %>%
+  filter(type %in% c("f", "m"))
+
+tspin_juv <- tspin_df %>%
+  filter(type == "juv")
+```
+
+
+```{r}
+plot_species(tspin_adult)
+```
+
+
 
 ### Model
 
@@ -334,120 +412,3 @@ year_means <- emmeans(model_epac, ~ year)
 plot(year_means)
 ```
 
-## Thysanoessa spinifera
-
-filtering species and N/As:
-
-```{r}
-tspin_df <- df_lmm %>%
-  filter(species_code == "TSPIN") %>%
-  filter(!is.na(length_weighted))
-```
-
-Creating separate dataframe for adults and juveniles:
-
-```{r}
-tspin_adult <- tspin_df %>%
-  filter(type %in% c("f", "m"))
-
-tspin_juv <- tspin_df %>%
-  filter(type == "juv")
-```
-
-### Figures
-
-figure showing the size of adults over the years:
-
-```{r}
-ggplot(tspin_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
-
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-
-  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
-
-  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
-
-  theme_minimal(base_size = 13) +
-
-  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-figure showing the size of juveniles over the years:
-
-```{r}
-ggplot(tspin_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
-
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-
-  labs(x = "Year", y = "Weighted mean body length (mm)") +
-
-  theme_minimal(base_size = 13) +
-theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-## Nematoscelis difficilis
-
-filtering species and N/As:
-
-```{r}
-ndif_df <- df_lmm %>%
-  filter(species_code == "NDIF") %>%
-  filter(!is.na(length_weighted))
-```
-
-Creating separate dataframe for adults and juveniles:
-
-```{r}
-ndif_adult <- ndif_df %>%
-  filter(type %in% c("f", "m"))
-
-ndif_juv <- ndif_df %>%
-  filter(type == "juv")
-```
-
-### Figures
-
-figure showing the size of adults over the years:
-
-```{r}
-ggplot(ndif_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
-
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-
-  scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
-
-  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
-
-  theme_minimal(base_size = 13) +
-
-  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-figure showing the size of juveniles over the years:
-
-```{r}
-ggplot(ndif_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
-
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
-
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-
-  labs(x = "Year", y = "Weighted mean body length (mm)") +
-
-  theme_minimal(base_size = 13) +
-theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-```
