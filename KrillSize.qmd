@@ -18,24 +18,29 @@ library(lme4)
 library(lmerTest) 
 
 raw_data <- read_excel(here::here("data", "raw", "krill_size.xlsx"))
+moci_data <- read.csv(here::here("data", "raw", "CaliforniaMOCI_long.csv"))
 ```
-
-# Tidying data
 
 ### Date
 
 Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used "cruise" column as reference rather than "date", since some sampling is done early in the next month (e.g. sampling date is 7/1 but it's from june cruise)
 
 ```{r}
-#create column with year and month
-df <- raw_data %>%
+data_date <- raw_data %>%
 
   mutate(base_date = make_date(
       year  = 2000 + as.numeric(substr(cruise, 4, 5)),
       month = as.numeric(substr(cruise, 6, 7)),
       day   = 1))%>% 
- #move column 
   relocate(base_date, .after = date)
+
+```
+
+excluding cruises from feb (n=1), apr (n=2), and oct (n=3)
+
+```{r}
+df <- data_date %>%
+  filter(!month(base_date) %in% c(2, 4, 10))
 
 ```
 
@@ -80,7 +85,32 @@ df <- df %>%
 relocate(species_code, .after = species_name)
 ```
 
-# Temporal changes in krill size
+## MOCI
+
+Joining seasonal MOCI from Northern California with df
+
+```{r}
+df <- df %>%
+  mutate(
+    Year = year(base_date),
+    Month = month(base_date),
+    Season = case_when(
+      Month %in% c(4, 5, 6) ~ "AMJ",
+      Month %in% c(7, 8, 9) ~ "JAS"))
+    
+df <- df %>%
+  left_join(
+    moci_data %>%
+      select(Year, Season, North.California..38.42N.),
+    by = c("Year", "Season")) %>%
+  rename(moci = North.California..38.42N.)
+```
+
+
+
+
+
+# Analyses
 
 Testing interannual variability using Linear Mixed Models because:
 
@@ -96,85 +126,71 @@ In this model, year is used as fixed effect and cruise/jar as random factors, th
 
 downsides: Some years have more cruises/samples than others, which can influence the precision Years are not considered directional, and this model will not show overall trends. Considering that the main goal is to identify changes in response to climate anomalies, this is not a problem.
 
-## uneven sampling effort
+## Uneven Sampling
+Some diagnostic and informative tables for decision making, set up with eval = false to not run every time
+
+checking number of cruises per months:
+
+```{r eval=FALSE}
+cruise_per_month <- data_date %>%
+    group_by(month = month(base_date)) %>%
+  summarise(n_cruises = n_distinct(base_date))
+```
+
 
 checking number of jars per cruise:
 
-```{r}
-jars_per_cruise <- df %>%
+```{r eval=FALSE}
+tot_jars_per_cruise <- data_date %>%
   group_by(base_date) %>%
   summarise(n_jars = n_distinct(jar))
 ```
 
+
 checking number of jars per line per cruise
 
-```{r}
-jars_per_cruise_line <- df %>%
+```{r eval=FALSE}
+jars_per_line_per_cruise_not3 <- data_date %>%
   group_by(base_date, line) %>%
   summarise(n_jars = n_distinct(jar), .groups = "drop")
 ```
 
+
 checking cruises with lines that have more or less than 3 samples:
 
-```{r}
-problem_cruises <- df %>%
+```{r eval=FALSE}
+jars_per_line_not3 <- data_date %>%
   group_by(base_date, line) %>%
   summarise(n_jars = n_distinct(jar), .groups = "drop") %>%
   filter(n_jars != 3)
 ```
 
-### Months
+Checking number of lines per cruise, and identifying missing lines
 
-checking cruises per months:
-
-```{r}
-cruise_per_month <- df %>%
-    group_by(month = month(base_date)) %>%
-  summarise(n_cruises = n_distinct(base_date))
-```
-
-Months of sampling represent seasons and have important data regarding seasonal variability. Months with sufficient amount of data will be used as random factors.
-
-### Lines
-
-checking cruises that don't have all 3 lines
-
-```{r}
-#create a list of number of lines per cruise
-lines_per_cruise <- df %>%
+```{r eval=FALSE}
+missing_lines <- data_date %>%
   group_by(base_date) %>%
-  summarise(n_lines = n_distinct(line), .groups = "drop") %>%
-#check which cruises are missing lines
-  filter(n_lines < 3)
-
-#find out which lines are missing
-missing_lines <- df %>%
-  distinct(base_date, line) %>%  # which lines exist
-  complete(base_date, line = c("2", "4", "6")) %>%  # create all expected combos
-  anti_join(df %>% distinct(base_date, line), by = c("base_date", "line"))
+  summarise(
+    n_lines = n_distinct(line),
+    missing_lines = paste(setdiff(c("2", "4", "6"), unique(line)), collapse = ", "),
+    .groups = "drop")
 ```
 
-### Station
 
 checking stations of each line across the years, revealing multiple station per line, some N/A, some have ".", some "TT". conclusion: do not use station column as random factors
 
-```{r}
+```{r eval=FALSE}
 station_per_line <- df %>%
   group_by(line, station) %>%
   summarise(n_jars = n_distinct(jar), .groups = "drop") 
 ```
 
-### Diel
 
-estimating how many night cruises by listing cruises with multiple tows (\>3 samples per line), don't have time data yet. Since number of night samples is way lower than day, night samples will be excluded from the model.
+# Size Calculation
 
-```{r}
-night_cruises <- df %>%
-  group_by(base_date, line) %>%
-  summarise(n_jars = n_distinct(jar), .groups = "drop") %>%
-  filter(n_jars > 3)
-```
+Calculating volume of krill considering each to be the shape of a cone and using cone volume formula. for each size range, d is median weight and h is median length. 
 
+Adding columns for median weigth (d) and median length (h)
 Using mid point size per row with length data only per type (juv/f/m) per jar per size range
 
 ```{r}
@@ -187,17 +203,9 @@ Calculating one size per type per jar
 
 ```{r}
 df_lmm <- df_lmm %>%
-  group_by(species_code, jar, type, base_date) %>%
+  group_by(species_code, jar, type, base_date, moci) %>%
   summarise(length_weighted = sum(length_mid * tot_num) / sum(tot_num),
     .groups = "drop")
-```
-
-excluding cruises from feb (n=1), apr (n=2), and oct (n=3)
-
-```{r}
-df_lmm <- df_lmm %>%
-  filter(!month(base_date) %in% c(2, 4, 10))
-
 ```
 
 ## Euphausia pacifica
@@ -220,25 +228,59 @@ epac_juv <- epac_df %>%
   filter(type == "juv")
 ```
 
+### Figures
+
 figure showing the size of adults over the years:
 
+TEST
 ```{r}
-ggplot(epac_adult, aes(x = factor(year(base_date)), y = length_weighted, color = type)) +
+epac_adult <- epac_adult %>%
+  mutate(year = year(base_date))
 
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) +
-  geom_jitter(width = 0.2, alpha = 0.4, size = 1) +
+# ranges
+len_min <- min(epac_adult$length_weighted, na.rm = TRUE)
+len_max <- max(epac_adult$length_weighted, na.rm = TRUE)
+len_mid <- mean(c(len_min, len_max))
 
-  stat_summary(fun = mean, geom = "line", aes(group = type), linewidth = 1) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
+moci_max <- max(abs(epac_adult$moci), na.rm = TRUE)
+
+# scaling factor (fit MOCI into length range nicely)
+scale_factor <- (len_max - len_min) / (2 * moci_max)
+
+ggplot(epac_adult, aes(x = factor(year))) +
+
+  # jitter
+  #geom_jitter(aes(y = length_weighted, color = type), width = 0.2, alpha = 0.4, size = 1) +
+
+  # means
+  stat_summary(aes(y = length_weighted, color = type, group = type),
+               fun = mean, geom = "line", linewidth = 1) +
+
+  stat_summary(aes(y = length_weighted, color = type),
+               fun = mean, geom = "point", size = 3) +
+
+  # MOCI (centered + scaled + shifted)
+  stat_summary(aes(y = (moci * scale_factor) + len_mid, group = 1),
+               fun = mean, geom = "line",
+               color = "black", linewidth = 1.2, linetype = "dashed") +
+
+  scale_y_continuous(
+    name = "Weighted mean body length (mm)",
+    sec.axis = sec_axis(~ (. - len_mid) / scale_factor,
+                        name = "MOCI")
+  ) +
 
   scale_color_manual(values = c("f" = "#E64B35", "m" = "#4DBBD5")) +
 
-  labs(x = "Year", y = "Weighted mean body length (mm)", color = "Type") +
+  labs(x = "Year", color = "Type") +
 
   theme_minimal(base_size = 13) +
-
-  theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+
 
 figure showing the size of juveniles over the years:
 
@@ -256,6 +298,8 @@ ggplot(epac_juv, aes(x = factor(year(base_date)), y = length_weighted)) +
   theme_minimal(base_size = 13) +
 theme(panel.grid.minor = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+### Model
 
 Running model with epac adults: first checking variables
 
@@ -309,6 +353,8 @@ tspin_adult <- tspin_df %>%
 tspin_juv <- tspin_df %>%
   filter(type == "juv")
 ```
+
+### Figures
 
 figure showing the size of adults over the years:
 
@@ -366,6 +412,8 @@ ndif_adult <- ndif_df %>%
 ndif_juv <- ndif_df %>%
   filter(type == "juv")
 ```
+
+### Figures
 
 figure showing the size of adults over the years:
 
