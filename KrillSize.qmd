@@ -17,9 +17,11 @@ library(ggplot2)
 library(lme4)
 library(lmerTest) 
 library(viridis)
+library(leaflet)
 
-raw_data <- read_excel(here::here("data", "raw", "krill_size.xlsx"))
-moci_data <- read.csv(here::here("data", "raw", "CaliforniaMOCI_long.csv"))
+raw_data <- read_excel(here("data", "raw", "krill_size.xlsx"))
+moci_data <- read.csv(here("data", "raw", "CaliforniaMOCI_long.csv"))
+loc_data <- read_excel(here("data","raw", "locdata.xlsx"))
 ```
 
 ### Date
@@ -187,6 +189,17 @@ station_per_line <- df %>%
 ```
 
 
+checking my counts:
+
+```{r eval=FALSE}
+jar_counts <- df %>%
+  group_by(species_code, jar) %>%
+  summarise(total_individuals = sum(tot_num, na.rm = TRUE), .groups = "drop") %>%
+  arrange(species_code, jar)
+```
+
+
+
 # Size Calculation
 
 
@@ -212,19 +225,9 @@ df <- df %>%
 Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)
 ```{r}
 df_vol <- df %>%
-  group_by(species_code, jar, type, base_date, moci) %>%
+  group_by(species_code, jar, type, base_date, moci, line) %>%
   filter(!is.na(tot_num)) %>%
   summarise(volume_weighted = sum(volume * tot_num) / sum(tot_num),
-    .groups = "drop")
-```
-
-
-LENGTH: Calculating one size per type per jar
-
-```{r eval=FALSE}
-df_lmm <- df_lmm %>%
-  group_by(species_code, jar, type, base_date, moci) %>%
-  summarise(length_weighted = sum(length_mid * tot_num) / sum(tot_num),
     .groups = "drop")
 ```
 
@@ -234,50 +237,133 @@ df_lmm <- df_lmm %>%
 Creating a plot function for all species' adults:
 
 ```{r}
-plot_species <- function(data, species_name = NULL) {
+plot_adult <- function(data, species_name = "Adult") {
+
   data <- data %>%
     mutate(year = year(base_date))
+  
+  summary_vol <- data %>%
+    group_by(year, type) %>%
+    summarise(volume_weighted = mean(volume_weighted, na.rm = TRUE),
+              .groups = "drop")
 
-  vol_min <- min(data$volume_weighted, na.rm = TRUE)
-  vol_max <- max(data$volume_weighted, na.rm = TRUE)
+  summary_moci <- data %>%
+    group_by(year) %>%
+    summarise(moci = mean(moci, na.rm = TRUE),
+              .groups = "drop")
+
+  vol_min <- min(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_max <- max(summary_vol$volume_weighted, na.rm = TRUE)
   vol_mid <- mean(c(vol_min, vol_max))
 
-  moci_max <- max(abs(data$moci), na.rm = TRUE)
-
+  moci_max <- max(abs(summary_moci$moci), na.rm = TRUE)
   scale_factor <- (vol_max - vol_min) / (2 * moci_max)
 
-  ggplot(data, aes(x = factor(year))) +
+  ggplot() +
 
-    stat_summary(aes(y = volume_weighted, color = type, group = type),
-                 fun = mean, geom = "line", linewidth = 1) +
+    # Volume (viridis, consistent)
+    geom_line(data = summary_vol,
+              aes(x = factor(year), y = volume_weighted,
+                  color = type, group = type),
+              linewidth = 1) +
 
-    stat_summary(aes(y = volume_weighted, color = type),
-                 fun = mean, geom = "point", size = 3) +
+    geom_point(data = summary_vol,
+               aes(x = factor(year), y = volume_weighted,
+                   color = type),
+               size = 3) +
 
-    stat_summary(aes(y = (moci * scale_factor) + vol_mid, group = 1),
-                 fun = mean, geom = "line",
-                 color = viridis::viridis(5)[2],
-                 linewidth = 1.2, linetype = "dashed") +
+    # MOCI (neutral + dashed ALWAYS)
+    geom_line(data = summary_moci,
+              aes(x = factor(year),
+                  y = (moci * scale_factor) + vol_mid,
+                  group = 1),
+              color = "grey30",
+              linewidth = 1.2,
+              linetype = "dashed") +
 
     scale_y_continuous(
-      name = "Weighted mean body volume (mm)",
+      name = "Weighted mean body volume (mm3)",
       sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
                           name = "MOCI")) +
 
-    scale_color_viridis_d(option = "D", end = 0.8) + 
+    scale_color_viridis_d(option = "D", end = 0.8) +
 
-    labs(
-      x = "Year",
-      color = "Type",
-      title = species_name) +
+labs(
+  x = "Year",
+  color = "Type",
+  title = bquote(italic(.(species_name)))
+) +
 
     theme_minimal(base_size = 13) +
     theme(
       panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1))
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
 }
 ```
 
+
+Creating a plot function for all species' juveniles:
+```{r}
+
+plot_juv <- function(data, species_name = "juvenile") {
+
+  data <- data %>%
+    mutate(year = year(base_date))
+
+  summary_vol <- data %>%
+    group_by(year) %>%
+    summarise(volume_weighted = mean(volume_weighted, na.rm = TRUE),
+              .groups = "drop")
+
+  vol_min <- min(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_max <- max(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_mid <- mean(c(vol_min, vol_max))
+
+  summary_moci <- data %>%
+    group_by(year) %>%
+    summarise(moci = mean(moci, na.rm = TRUE),
+              .groups = "drop")
+
+  moci_max <- max(abs(summary_moci$moci), na.rm = TRUE)
+  scale_factor <- (vol_max - vol_min) / (2 * moci_max)
+
+  ggplot(data, aes(x = factor(year))) +
+
+    stat_summary(aes(y = volume_weighted, group = 1),
+                 fun = mean, geom = "line",
+                 linewidth = 1,
+                 color = viridis::viridis(1)) +
+
+    stat_summary(aes(y = volume_weighted, group = 1),
+                 fun = mean, geom = "point",
+                 size = 3,
+                 color = viridis::viridis(1)) +
+
+    # MOCI (scaled)
+    stat_summary(aes(y = (moci * scale_factor) + vol_mid, group = 1),
+                 fun = mean, geom = "line",
+                 color = "grey30", linewidth = 1.2, linetype = "dashed") +
+
+    scale_y_continuous(
+      name = "Weighted mean body volume (mm3)",
+      sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
+                          name = "MOCI")) +
+
+
+    
+    labs(
+  x = "Year",
+  title = bquote(italic(.(species_name)))
+) +
+
+    theme_minimal(base_size = 13) +
+    theme(
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+}
+```
 
 ## Euphausia pacifica
 
@@ -298,56 +384,16 @@ epac_juv <- epac_df %>%
   filter(type == "juv")
 ```
 
-
+Creating plot for EPAC adult:
 ```{r}
-plot_species(epac_adult)
+plot_adult(epac_adult)
 ```
 
 
-
-Plot for juves:
+Creating plot for EPAC juveniles:
 ```{r}
-epac_juv <- epac_juv %>%
-  mutate(year = year(base_date))
-
-# ranges
-vol_min <- min(epac_juv$volume_weighted, na.rm = TRUE)
-vol_max <- max(epac_juv$volume_weighted, na.rm = TRUE)
-vol_mid <- mean(c(vol_min, vol_max))
-
-moci_max <- max(abs(epac_juv$moci), na.rm = TRUE)
-
-scale_factor <- (vol_max - vol_min) / (2 * moci_max)
-
-ggplot(epac_juv, aes(x = factor(year))) +
-
-  stat_summary(aes(y = volume_weighted, color = type, group = type),
-               fun = mean, geom = "line", linewidth = 1) +
-
-  stat_summary(aes(y = volume_weighted, color = type),
-               fun = mean, geom = "point", size = 3) +
-
-  # MOCI (centered + scaled + shifted)
-  stat_summary(aes(y = (moci * scale_factor) + vol_mid, group = 1),
-               fun = mean, geom = "line",
-               color = "black", linewidth = 1.2, linetype = "dashed") +
-
-  scale_y_continuous(
-    name = "Weighted mean body volume (mm)",
-    sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
-                        name = "MOCI")) +
-
-  scale_color_manual(values = c("juv" = "#E64B35")) +
-
-  labs(x = "Year", color = "Type") +
-
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.minor = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1))
+plot_juv(epac_juv)
 ```
-
-
 
 
 
@@ -372,43 +418,391 @@ tspin_juv <- tspin_df %>%
 
 
 ```{r}
-plot_species(tspin_adult)
+plot_adult(tspin_adult)
+```
+
+
+Creating plot for EPAC juveniles:
+```{r}
+plot_juv(tspin_juv)
+```
+
+## Nematocellis difficilis
+
+filtering species:
+
+```{r}
+ndif_df <- df_vol %>%
+  filter(species_code == "NDIF")
+```
+
+Creating separate dataframe for adults and juveniles:
+
+```{r}
+ndif_adult <- ndif_df %>%
+  filter(type %in% c("f", "m"))
+
+ndif_juv <- ndif_df %>%
+  filter(type == "juv")
+```
+
+
+```{r}
+plot_adult(ndif_adult)
 ```
 
 
 
-### Model
-
-Running model with epac adults: first checking variables
-
+Creating plot for EPAC juveniles:
 ```{r}
-epac_adult <- epac_adult %>%
-  mutate(year = factor(year(base_date)),
-    cruise = factor(base_date),
-    jar = factor(jar),
-    type = factor(type))
+plot_juv(ndif_juv)
 ```
 
-running mixed models:
+
+
+# comparing species
+
+creating the df
+
+
+plotting m
 
 ```{r}
-model_epac <- lmer(length_weighted ~ year + type + (1 | cruise/jar),
-  data = epac_adult)
+plot_adultm_species_compare <- function(data, sex_filter = "m", title_label = "Adults") {
 
-summary(model_epac)
+  data <- data %>%
+    mutate(year = year(base_date)) %>%
+    filter(type == sex_filter)
+
+  # Volume summary (per species per year)
+  summary_vol <- data %>%
+    group_by(year, species_code) %>%
+    summarise(volume_weighted = mean(volume_weighted, na.rm = TRUE),
+              .groups = "drop")
+
+  # MOCI summary (shared across species)
+  summary_moci <- data %>%
+    group_by(year) %>%
+    summarise(moci = mean(moci, na.rm = TRUE),
+              .groups = "drop")
+
+  # Scaling (same axis)
+  vol_min <- min(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_max <- max(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_mid <- mean(c(vol_min, vol_max))
+
+  moci_max <- max(abs(summary_moci$moci), na.rm = TRUE)
+  scale_factor <- (vol_max - vol_min) / (2 * moci_max)
+
+  ggplot() +
+
+    # Species lines (viridis)
+    geom_line(data = summary_vol,
+              aes(x = factor(year),
+                  y = volume_weighted,
+                  color = species_code,
+                  group = species_code),
+              linewidth = 1) +
+
+    geom_point(data = summary_vol,
+               aes(x = factor(year),
+                   y = volume_weighted,
+                   color = species_code),
+               size = 3) +
+
+    # MOCI (shared, dashed)
+    geom_line(data = summary_moci,
+              aes(x = factor(year),
+                  y = (moci * scale_factor) + vol_mid,
+                  group = 1),
+              color = "grey30",
+              linewidth = 1.2,
+              linetype = "dashed") +
+
+    scale_y_continuous(
+      name = "Weighted mean body volume (mm3)",
+      sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
+                          name = "MOCI")) +
+
+    scale_color_viridis_d(option = "D", end = 0.85) +
+
+    labs(
+      x = "Year",
+      color = "Species",
+      title = paste(title_label, "-", sex_filter)) +
+
+    theme_minimal(base_size = 13) +
+    theme(
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1))
+}
 ```
 
-running anova
 
 ```{r}
-anova(model_epac)
+plot_adultm_species_compare(df_vol)
 ```
 
-making a plot for years:
+
+plotting f
 
 ```{r}
-library(emmeans)
-year_means <- emmeans(model_epac, ~ year)
-plot(year_means)
+plot_adultf_species_compare <- function(data, sex_filter = "f", title_label = "Adults") {
+
+  data <- data %>%
+    mutate(year = year(base_date)) %>%
+    filter(type == sex_filter)
+
+  # Volume summary (per species per year)
+  summary_vol <- data %>%
+    group_by(year, species_code) %>%
+    summarise(volume_weighted = mean(volume_weighted, na.rm = TRUE),
+              .groups = "drop")
+
+  # MOCI summary (shared across species)
+  summary_moci <- data %>%
+    group_by(year) %>%
+    summarise(moci = mean(moci, na.rm = TRUE),
+              .groups = "drop")
+
+  # Scaling (same axis)
+  vol_min <- min(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_max <- max(summary_vol$volume_weighted, na.rm = TRUE)
+  vol_mid <- mean(c(vol_min, vol_max))
+
+  moci_max <- max(abs(summary_moci$moci), na.rm = TRUE)
+  scale_factor <- (vol_max - vol_min) / (2 * moci_max)
+
+  ggplot() +
+
+    # Species lines (viridis)
+    geom_line(data = summary_vol,
+              aes(x = factor(year),
+                  y = volume_weighted,
+                  color = species_code,
+                  group = species_code),
+              linewidth = 1) +
+
+    geom_point(data = summary_vol,
+               aes(x = factor(year),
+                   y = volume_weighted,
+                   color = species_code),
+               size = 3) +
+
+    # MOCI (shared, dashed)
+    geom_line(data = summary_moci,
+              aes(x = factor(year),
+                  y = (moci * scale_factor) + vol_mid,
+                  group = 1),
+              color = "grey30",
+              linewidth = 1.2,
+              linetype = "dashed") +
+
+    scale_y_continuous(
+      name = "Weighted mean body volume (mm3)",
+      sec.axis = sec_axis(~ (. - vol_mid) / scale_factor,
+                          name = "MOCI")) +
+
+    scale_color_viridis_d(option = "D", end = 0.85) +
+
+    labs(
+      x = "Year",
+      color = "Species",
+      title = paste(title_label, "-", sex_filter)) +
+
+    theme_minimal(base_size = 13) +
+    theme(
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+
+
+```{r}
+plot_adultf_species_compare(df_vol)
+```
+
+
+# Maps
+
+```{r}
+df_map <- df %>%
+  left_join(
+    loc_data %>%
+      select(ID_Jar, Lon_IN, Lat_IN),
+    by = c("jar" = "ID_Jar"))
+```
+
+
+
+making a clean df:
+```{r}
+df_map_clean <- df_map %>%
+  select(jar, cruise, Lat_IN, Lon_IN, base_date, line, station) %>%
+  distinct() %>%
+  filter(!is.na(Lat_IN), !is.na(Lon_IN))
+```
+
+
+creating a map: ADD BATHYMETRY LAYER, ADD FIXED TRANSECT LINES
+CHECK:
+line 2: 2141, 2142, 
+line 4: 2131, 2134, 2137, 2140
+
+```{r}
+
+pal <- colorFactor(viridis(3, option = "D"), df_map_clean$line)
+
+
+leaflet(df_map_clean) %>%
+  addTiles() %>%  # base map
+  addCircleMarkers(
+    lng = ~Lon_IN,
+    lat = ~Lat_IN,
+    radius = 5,
+    stroke = FALSE,
+    fillOpacity = 0.8,
+    color = ~pal(line),  # color by line
+    label = ~paste("Jar:", jar, "<br>Cruise:", cruise, "<br>Line:", line)) %>%
+  addLegend(
+    "bottomright",
+    pal = pal,
+    values = ~line,  # must match palette
+    title = "Line",
+    opacity = 1
+  )
+```
+
+# model with functions:
+
+creating df function
+```{r}
+prep_species <- function(df_vol, species_name) {
+  df_vol %>%
+    filter(species_code == species_name) %>%
+    mutate(
+      year = lubridate::year(base_date),
+      type = factor(type),
+      line = factor(line),
+      base_date = as.Date(base_date)
+    ) %>%
+    ungroup()
+}
+
+
+```
+
+model function
+
+```{r}
+run_models <- function(df_vol) {
+
+  # Year model
+  model_year <- lmer(
+    volume_weighted ~ factor(year) + type +
+      (1 | base_date) + (1 | line),
+    data = df_vol
+  )
+  
+  # MOCI model
+  model_moci <- lmer(
+    volume_weighted ~ moci + type +
+      (1 | base_date) + (1 | line),
+    data = df_vol
+  )
+  
+  # MOCI + type interaction
+  model_moci_type <- lmer(
+    volume_weighted ~ moci * type +
+      (1 | base_date) + (1 | line),
+    data = df_vol
+  )
+  
+  return(list(
+    year = model_year,
+    moci = model_moci,
+    moci_type = model_moci_type
+  ))
+}
+```
+
+
+summerizing models:
+
+```{r}
+summarize_models <- function(models, species_name) {
+  
+  cat("\n==============================\n")
+  cat("Species:", species_name, "\n")
+  cat("==============================\n")
+  
+  cat("\n--- YEAR EFFECT ---\n")
+  print(anova(models$year))
+  
+  cat("\n--- MOCI EFFECT ---\n")
+  print(summary(models$moci)$coefficients)
+  
+  cat("\n--- MOCI * TYPE ---\n")
+  print(summary(models$moci_type)$coefficients)
+}
+```
+
+
+running it for all species:
+
+```{r}
+epac_models <- prep_species(df_vol, "EPAC") %>% run_models()
+summarize_models(epac_models, "EPAC")
+
+tspin_models <- prep_species(df_vol, "TSPIN") %>% run_models()
+summarize_models(tspin_models, "TSPIN")
+
+ndif_models <- prep_species(df_vol, "NDIF") %>% run_models()
+summarize_models(ndif_models, "NDIF")
+
+```
+
+
+
+
+# model
+
+Running a linear mixed effects model for each species:
+
+```{r}
+epac_lme <- df_vol %>% filter(species_code == "EPAC") %>%
+  mutate(year = year(base_date))
+
+model_year <- lmer(volume_weighted ~ factor(year) + type + (1 | base_date) + (1 | line), data = epac_lme)
+
+anova(model_year)
+```
+now testing moci:
+
+```{r}
+model_moci <- lmer(volume_weighted ~ moci + type +
+                   (1 | base_date) + (1 | line),
+                   data = epac_lme)
+
+summary(model_moci)
+```
+
+moci inndividually in each type:
+
+```{r}
+model_moci_type <- lmer(volume_weighted ~ moci * type +
+                        (1 | base_date) + (1 | line),
+                        data = epac_lme)
+
+summary(model_moci_type)
+```
+quick cheeky plot:
+
+```{r}
+ggplot(epac_lme, aes(x = moci, y = volume_weighted, color = type)) +
+  geom_point(alpha = 0.25) +
+  geom_smooth(method = "lm", se = TRUE) +
+  theme_classic()
 ```
 

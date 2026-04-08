@@ -70,6 +70,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="KrillSize_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="KrillSize_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="KrillSize_files/libs/bootstrap/bootstrap-bb462d781dde1847d9e3ccf7736099dd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="KrillSize_files/libs/htmltools-fill-0.5.8.1/fill.css" rel="stylesheet">
+
+<script src="KrillSize_files/libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+
+<script src="KrillSize_files/libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+
+<link href="KrillSize_files/libs/leaflet-1.3.1/leaflet.css" rel="stylesheet">
+
+<script src="KrillSize_files/libs/leaflet-1.3.1/leaflet.js"></script>
+
+<link href="KrillSize_files/libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet">
+
+<script src="KrillSize_files/libs/proj4-2.6.2/proj4.min.js"></script>
+
+<script src="KrillSize_files/libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+
+<link href="KrillSize_files/libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet">
+
+<script src="KrillSize_files/libs/leaflet-binding-2.2.3/leaflet.js"></script>
+
 
 
 </head>
@@ -120,7 +140,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code>── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ✔ forcats   1.0.1     ✔ stringr   1.6.0
-✔ ggplot2   4.0.0     ✔ tibble    3.3.0
+✔ ggplot2   4.0.2     ✔ tibble    3.3.0
 ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
 ✔ purrr     1.2.0     </code></pre>
 </div>
@@ -154,66 +174,128 @@ The following object is masked from 'package:stats':
 
     step</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"data"</span>, <span class="st">"raw"</span>, <span class="st">"krill_size.xlsx"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(viridis)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: viridisLite</code></pre>
 </div>
-</section>
-<section id="tidying-data" class="level1">
-<h1>Tidying data</h1>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(leaflet)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="fu">here</span>(<span class="st">"data"</span>, <span class="st">"raw"</span>, <span class="st">"krill_size.xlsx"</span>))</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>moci_data <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="fu">here</span>(<span class="st">"data"</span>, <span class="st">"raw"</span>, <span class="st">"CaliforniaMOCI_long.csv"</span>))</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>loc_data <span class="ot">&lt;-</span> <span class="fu">read_excel</span>(<span class="fu">here</span>(<span class="st">"data"</span>,<span class="st">"raw"</span>, <span class="st">"locdata.xlsx"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>New names:
+• `Euphausia pacifica` -&gt; `Euphausia pacifica...2`
+• `Euphausia recurva` -&gt; `Euphausia recurva...3`
+• `Euphausiidae` -&gt; `Euphausiidae...4`
+• `Nematobrachion flexipes` -&gt; `Nematobrachion flexipes...5`
+• `Nematoscelis difficilis` -&gt; `Nematoscelis difficilis...6`
+• `Nyctiphanes simplex` -&gt; `Nyctiphanes simplex...7`
+• `Stylocheiron abbreviatum` -&gt; `Stylocheiron abbreviatum...8`
+• `Stylocheiron affine` -&gt; `Stylocheiron affine...9`
+• `Stylocheiron longicorne` -&gt; `Stylocheiron longicorne...10`
+• `Stylocheiron spp` -&gt; `Stylocheiron spp...11`
+• `Tessarabrachion oculatum` -&gt; `Tessarabrachion oculatum...12`
+• `Thysanoessa gregaria` -&gt; `Thysanoessa gregaria...13`
+• `Thysanoessa inspinata` -&gt; `Thysanoessa inspinata...14`
+• `Thysanoessa longipes` -&gt; `Thysanoessa longipes...15`
+• `Thysanoessa spinifera` -&gt; `Thysanoessa spinifera...16`
+• `Euphausia pacifica` -&gt; `Euphausia pacifica...17`
+• `Euphausia recurva` -&gt; `Euphausia recurva...18`
+• `Euphausiidae` -&gt; `Euphausiidae...19`
+• `Nematobrachion flexipes` -&gt; `Nematobrachion flexipes...20`
+• `Nematoscelis difficilis` -&gt; `Nematoscelis difficilis...21`
+• `Nyctiphanes simplex` -&gt; `Nyctiphanes simplex...22`
+• `Stylocheiron abbreviatum` -&gt; `Stylocheiron abbreviatum...23`
+• `Stylocheiron affine` -&gt; `Stylocheiron affine...24`
+• `Stylocheiron longicorne` -&gt; `Stylocheiron longicorne...25`
+• `Stylocheiron spp` -&gt; `Stylocheiron spp...26`
+• `Tessarabrachion oculatum` -&gt; `Tessarabrachion oculatum...27`
+• `Thysanoessa gregaria` -&gt; `Thysanoessa gregaria...28`
+• `Thysanoessa inspinata` -&gt; `Thysanoessa inspinata...29`
+• `Thysanoessa longipes` -&gt; `Thysanoessa longipes...30`
+• `Thysanoessa spinifera` -&gt; `Thysanoessa spinifera...31`</code></pre>
+</div>
+</div>
 <section id="date" class="level3">
 <h3 class="anchored" data-anchor-id="date">Date</h3>
 <p>Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used “cruise” column as reference rather than “date”, since some sampling is done early in the next month (e.g.&nbsp;sampling date is 7/1 but it’s from june cruise)</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co">#create column with year and month</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> raw_data <span class="sc">%&gt;%</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">base_date =</span> <span class="fu">make_date</span>(</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">year  =</span> <span class="dv">2000</span> <span class="sc">+</span> <span class="fu">as.numeric</span>(<span class="fu">substr</span>(cruise, <span class="dv">4</span>, <span class="dv">5</span>)),</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">month =</span> <span class="fu">as.numeric</span>(<span class="fu">substr</span>(cruise, <span class="dv">6</span>, <span class="dv">7</span>)),</span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">day   =</span> <span class="dv">1</span>))<span class="sc">%&gt;%</span> </span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a> <span class="co">#move column </span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(base_date, <span class="at">.after =</span> date)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>data_date <span class="ot">&lt;-</span> raw_data <span class="sc">%&gt;%</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">base_date =</span> <span class="fu">make_date</span>(</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>      <span class="at">year  =</span> <span class="dv">2000</span> <span class="sc">+</span> <span class="fu">as.numeric</span>(<span class="fu">substr</span>(cruise, <span class="dv">4</span>, <span class="dv">5</span>)),</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>      <span class="at">month =</span> <span class="fu">as.numeric</span>(<span class="fu">substr</span>(cruise, <span class="dv">6</span>, <span class="dv">7</span>)),</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">day   =</span> <span class="dv">1</span>))<span class="sc">%&gt;%</span> </span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(base_date, <span class="at">.after =</span> date)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>excluding cruises from feb (n=1), apr (n=2), and oct (n=3)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">month</span>(base_date) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">10</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="life-stage" class="level3">
 <h3 class="anchored" data-anchor-id="life-stage">Life Stage</h3>
 <p>Changing all imm m to m, and imm f to f for consistency, since some samples include rows labeled as m in lower than 11mm ranges.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="fu">case_when</span>(</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>      type <span class="sc">==</span> <span class="st">"imm m"</span> <span class="sc">~</span> <span class="st">"m"</span>,</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>      type <span class="sc">==</span> <span class="st">"imm f"</span> <span class="sc">~</span> <span class="st">"f"</span>,</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> type))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="fu">case_when</span>(</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>      type <span class="sc">==</span> <span class="st">"imm m"</span> <span class="sc">~</span> <span class="st">"m"</span>,</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>      type <span class="sc">==</span> <span class="st">"imm f"</span> <span class="sc">~</span> <span class="st">"f"</span>,</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> type))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="species" class="level3">
 <h3 class="anchored" data-anchor-id="species">Species</h3>
 <p>Filtering data: only including species of interest, only including juv, f and m</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_name <span class="sc">%in%</span> <span class="fu">c</span>(</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Euphausia pacifica"</span>,</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Nematoscelis difficilis"</span>,</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Thysanoessa spinifera"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Keep only relevant types</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"juv"</span>, <span class="st">"f"</span>, <span class="st">"m"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_name <span class="sc">%in%</span> <span class="fu">c</span>(</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Euphausia pacifica"</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Nematoscelis difficilis"</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"EUP Thysanoessa spinifera"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"juv"</span>, <span class="st">"f"</span>, <span class="st">"m"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Adding code names for convenience</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">species_code =</span> <span class="fu">case_when</span>(</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Euphausia pacifica"</span> <span class="sc">~</span> <span class="st">"EPAC"</span>,</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Thysanoessa spinifera"</span> <span class="sc">~</span> <span class="st">"TSPIN"</span>,</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Nematoscelis difficilis"</span> <span class="sc">~</span> <span class="st">"NDIF"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">#move column</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="fu">relocate</span>(species_code, <span class="at">.after =</span> species_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">species_code =</span> <span class="fu">case_when</span>(</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Euphausia pacifica"</span> <span class="sc">~</span> <span class="st">"EPAC"</span>,</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Thysanoessa spinifera"</span> <span class="sc">~</span> <span class="st">"TSPIN"</span>,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>      species_name <span class="sc">==</span> <span class="st">"EUP Nematoscelis difficilis"</span> <span class="sc">~</span> <span class="st">"NDIF"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="fu">relocate</span>(species_code, <span class="at">.after =</span> species_name)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="moci" class="level2">
+<h2 class="anchored" data-anchor-id="moci">MOCI</h2>
+<p>Joining seasonal MOCI from Northern California with df</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">Year =</span> <span class="fu">year</span>(base_date),</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">Month =</span> <span class="fu">month</span>(base_date),</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">Season =</span> <span class="fu">case_when</span>(</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>      Month <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>) <span class="sc">~</span> <span class="st">"AMJ"</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>      Month <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">9</span>) <span class="sc">~</span> <span class="st">"JAS"</span>))</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>    moci_data <span class="sc">%&gt;%</span></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(Year, Season, North.California..<span class="fl">38.42</span>N.),</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"Year"</span>, <span class="st">"Season"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">moci =</span> North.California..<span class="fl">38.42</span>N.) <span class="sc">%&gt;%</span></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">season =</span> Season) <span class="sc">%&gt;%</span></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>Year, <span class="sc">-</span>Month) <span class="sc">%&gt;%</span></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(season, <span class="at">.after =</span> base_date)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
-<section id="temporal-changes-in-krill-size" class="level1">
-<h1>Temporal changes in krill size</h1>
+<section id="analyses" class="level1">
+<h1>Analyses</h1>
 <p>Testing interannual variability using Linear Mixed Models because:</p>
 <ul>
 <li><p>nested data (no need to collapse data to means)</p></li>
@@ -223,250 +305,237 @@ The following object is masked from 'package:stats':
 </ul>
 <p>In this model, year is used as fixed effect and cruise/jar as random factors, therefore testing if variability among years is larger than within-jar/cruise.</p>
 <p>downsides: Some years have more cruises/samples than others, which can influence the precision Years are not considered directional, and this model will not show overall trends. Considering that the main goal is to identify changes in response to climate anomalies, this is not a problem.</p>
-<section id="uneven-sampling-effort" class="level2">
-<h2 class="anchored" data-anchor-id="uneven-sampling-effort">uneven sampling effort</h2>
+<section id="uneven-sampling" class="level2">
+<h2 class="anchored" data-anchor-id="uneven-sampling">Uneven Sampling</h2>
+<p>Some diagnostic and informative tables for decision making, set up with eval = false to not run every time</p>
+<p>checking number of cruises per months:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>cruise_per_month <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(<span class="at">month =</span> <span class="fu">month</span>(base_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_cruises =</span> <span class="fu">n_distinct</span>(base_date))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 <p>checking number of jars per cruise:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>jars_per_cruise <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date) <span class="sc">%&gt;%</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>tot_jars_per_cruise <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date) <span class="sc">%&gt;%</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>checking number of jars per line per cruise</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>jars_per_cruise_line <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date, line) <span class="sc">%&gt;%</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>jars_per_line_per_cruise_not3 <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date, line) <span class="sc">%&gt;%</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>checking cruises with lines that have more or less than 3 samples:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>problem_cruises <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date, line) <span class="sc">%&gt;%</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(n_jars <span class="sc">!=</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>jars_per_line_not3 <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date, line) <span class="sc">%&gt;%</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(n_jars <span class="sc">!=</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<section id="months" class="level3">
-<h3 class="anchored" data-anchor-id="months">Months</h3>
-<p>checking cruises per months:</p>
+<p>Checking number of lines per cruise, and identifying missing lines</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>cruise_per_month <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(<span class="at">month =</span> <span class="fu">month</span>(base_date)) <span class="sc">%&gt;%</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_cruises =</span> <span class="fu">n_distinct</span>(base_date))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>missing_lines <span class="ot">&lt;-</span> data_date <span class="sc">%&gt;%</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date) <span class="sc">%&gt;%</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_lines =</span> <span class="fu">n_distinct</span>(line),</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">missing_lines =</span> <span class="fu">paste</span>(<span class="fu">setdiff</span>(<span class="fu">c</span>(<span class="st">"2"</span>, <span class="st">"4"</span>, <span class="st">"6"</span>), <span class="fu">unique</span>(line)), <span class="at">collapse =</span> <span class="st">", "</span>),</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Months of sampling represent seasons and have important data regarding seasonal variability. Months with sufficient amount of data will be used as random factors.</p>
-</section>
-<section id="lines" class="level3">
-<h3 class="anchored" data-anchor-id="lines">Lines</h3>
-<p>checking cruises that don’t have all 3 lines</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">#create a list of number of lines per cruise</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>lines_per_cruise <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date) <span class="sc">%&gt;%</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_lines =</span> <span class="fu">n_distinct</span>(line), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co">#check which cruises are missing lines</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(n_lines <span class="sc">&lt;</span> <span class="dv">3</span>)</span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co">#find out which lines are missing</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>missing_lines <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>(base_date, line) <span class="sc">%&gt;%</span>  <span class="co"># which lines exist</span></span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">complete</span>(base_date, <span class="at">line =</span> <span class="fu">c</span>(<span class="st">"2"</span>, <span class="st">"4"</span>, <span class="st">"6"</span>)) <span class="sc">%&gt;%</span>  <span class="co"># create all expected combos</span></span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">anti_join</span>(df <span class="sc">%&gt;%</span> <span class="fu">distinct</span>(base_date, line), <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"base_date"</span>, <span class="st">"line"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="station" class="level3">
-<h3 class="anchored" data-anchor-id="station">Station</h3>
 <p>checking stations of each line across the years, revealing multiple station per line, some N/A, some have “.”, some “TT”. conclusion: do not use station column as random factors</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>station_per_line <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(line, station) <span class="sc">%&gt;%</span></span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</section>
-<section id="diel" class="level3">
-<h3 class="anchored" data-anchor-id="diel">Diel</h3>
-<p>estimating how many night cruises by listing cruises with multiple tows (&gt;3 samples per line), don’t have time data yet. Since number of night samples is way lower than day, night samples will be excluded from the model.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>night_cruises <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(base_date, line) <span class="sc">%&gt;%</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(n_jars <span class="sc">&gt;</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Using mid point size per row with length data only per type (juv/f/m) per jar per size range</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>df_lmm <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">length_mid =</span> (length_l <span class="sc">+</span> length_h) <span class="sc">/</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="fu">relocate</span>(length_mid, <span class="at">.after =</span> length_h)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Calculating one size per type per jar</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>df_lmm <span class="ot">&lt;-</span> df_lmm <span class="sc">%&gt;%</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(species_code, jar, type, base_date) <span class="sc">%&gt;%</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">length_weighted =</span> <span class="fu">sum</span>(length_mid <span class="sc">*</span> tot_num) <span class="sc">/</span> <span class="fu">sum</span>(tot_num),</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>excluding cruises from feb (n=1), apr (n=2), and oct (n=3)</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>df_lmm <span class="ot">&lt;-</span> df_lmm <span class="sc">%&gt;%</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">month</span>(base_date) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">10</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>station_per_line <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(line, station) <span class="sc">%&gt;%</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">n_jars =</span> <span class="fu">n_distinct</span>(jar), <span class="at">.groups =</span> <span class="st">"drop"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
+<section id="size-calculation" class="level1">
+<h1>Size Calculation</h1>
+<p>Adding columns for width and length midpoint for each size range in each type:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">length_mid =</span> (length_l <span class="sc">+</span> length_h) <span class="sc">/</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">width_mid =</span> (width_l <span class="sc">+</span> width_h) <span class="sc">/</span> <span class="dv">2</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="fu">relocate</span>(length_mid, <span class="at">.after =</span> length_h) <span class="sc">%&gt;%</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(width_mid, <span class="at">.after =</span> width_h)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Calculating volume per each row by considering krill cone-shaped, using width_mid as diameter and length_mid as height:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">volume =</span> (<span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>) <span class="sc">*</span> pi <span class="sc">*</span> (width_mid <span class="sc">/</span> <span class="dv">2</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">*</span> length_mid) <span class="sc">%&gt;%</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(volume, <span class="at">.after =</span> width_mid) <span class="sc">%&gt;%</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(volume))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>df_vol <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(species_code, jar, type, base_date, moci) <span class="sc">%&gt;%</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(tot_num)) <span class="sc">%&gt;%</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">volume_weighted =</span> <span class="fu">sum</span>(volume <span class="sc">*</span> tot_num) <span class="sc">/</span> <span class="fu">sum</span>(tot_num),</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="figures" class="level1">
+<h1>Figures</h1>
+<p>Creating a plot function for all species’ adults:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>plot_adult <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">species_name =</span> <span class="st">"Adult"</span>) {</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  data <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">year =</span> <span class="fu">year</span>(base_date))</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>  summary_vol <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year, type) <span class="sc">%&gt;%</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">volume_weighted =</span> <span class="fu">mean</span>(volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>  summary_moci <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">moci =</span> <span class="fu">mean</span>(moci, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>  vol_min <span class="ot">&lt;-</span> <span class="fu">min</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>  vol_max <span class="ot">&lt;-</span> <span class="fu">max</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a>  vol_mid <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">c</span>(vol_min, vol_max))</span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a>  moci_max <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(summary_moci<span class="sc">$</span>moci), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a>  scale_factor <span class="ot">&lt;-</span> (vol_max <span class="sc">-</span> vol_min) <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> moci_max)</span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Volume (viridis, consistent)</span></span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year), <span class="at">y =</span> volume_weighted,</span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a>                  <span class="at">color =</span> type, <span class="at">group =</span> type),</span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year), <span class="at">y =</span> volume_weighted,</span>
+<span id="cb29-33"><a href="#cb29-33" aria-hidden="true" tabindex="-1"></a>                   <span class="at">color =</span> type),</span>
+<span id="cb29-34"><a href="#cb29-34" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb29-35"><a href="#cb29-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-36"><a href="#cb29-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># MOCI (neutral + dashed ALWAYS)</span></span>
+<span id="cb29-37"><a href="#cb29-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_moci,</span>
+<span id="cb29-38"><a href="#cb29-38" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb29-39"><a href="#cb29-39" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> (moci <span class="sc">*</span> scale_factor) <span class="sc">+</span> vol_mid,</span>
+<span id="cb29-40"><a href="#cb29-40" aria-hidden="true" tabindex="-1"></a>                  <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb29-41"><a href="#cb29-41" aria-hidden="true" tabindex="-1"></a>              <span class="at">color =</span> <span class="st">"grey30"</span>,</span>
+<span id="cb29-42"><a href="#cb29-42" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="fl">1.2</span>,</span>
+<span id="cb29-43"><a href="#cb29-43" aria-hidden="true" tabindex="-1"></a>              <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb29-44"><a href="#cb29-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-45"><a href="#cb29-45" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(</span>
+<span id="cb29-46"><a href="#cb29-46" aria-hidden="true" tabindex="-1"></a>      <span class="at">name =</span> <span class="st">"Weighted mean body volume (mm3)"</span>,</span>
+<span id="cb29-47"><a href="#cb29-47" aria-hidden="true" tabindex="-1"></a>      <span class="at">sec.axis =</span> <span class="fu">sec_axis</span>(<span class="sc">~</span> (. <span class="sc">-</span> vol_mid) <span class="sc">/</span> scale_factor,</span>
+<span id="cb29-48"><a href="#cb29-48" aria-hidden="true" tabindex="-1"></a>                          <span class="at">name =</span> <span class="st">"MOCI"</span>)) <span class="sc">+</span></span>
+<span id="cb29-49"><a href="#cb29-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-50"><a href="#cb29-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"D"</span>, <span class="at">end =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb29-51"><a href="#cb29-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-52"><a href="#cb29-52" aria-hidden="true" tabindex="-1"></a><span class="fu">labs</span>(</span>
+<span id="cb29-53"><a href="#cb29-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb29-54"><a href="#cb29-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">color =</span> <span class="st">"Type"</span>,</span>
+<span id="cb29-55"><a href="#cb29-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">title =</span> <span class="fu">bquote</span>(<span class="fu">italic</span>(.(species_name)))</span>
+<span id="cb29-56"><a href="#cb29-56" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span></span>
+<span id="cb29-57"><a href="#cb29-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-58"><a href="#cb29-58" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb29-59"><a href="#cb29-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb29-60"><a href="#cb29-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb29-61"><a href="#cb29-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>)</span>
+<span id="cb29-62"><a href="#cb29-62" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb29-63"><a href="#cb29-63" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Creating a plot function for all species’ juveniles:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>plot_juv <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">species_name =</span> <span class="st">"juvenile"</span>) {</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  data <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">year =</span> <span class="fu">year</span>(base_date))</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  summary_vol <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">volume_weighted =</span> <span class="fu">mean</span>(volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>  vol_min <span class="ot">&lt;-</span> <span class="fu">min</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>  vol_max <span class="ot">&lt;-</span> <span class="fu">max</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a>  vol_mid <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">c</span>(vol_min, vol_max))</span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a>  summary_moci <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">moci =</span> <span class="fu">mean</span>(moci, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a>  moci_max <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(summary_moci<span class="sc">$</span>moci), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a>  scale_factor <span class="ot">&lt;-</span> (vol_max <span class="sc">-</span> vol_min) <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> moci_max)</span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year))) <span class="sc">+</span></span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">y =</span> volume_weighted, <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a>                 <span class="at">linewidth =</span> <span class="dv">1</span>,</span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a>                 <span class="at">color =</span> viridis<span class="sc">::</span><span class="fu">viridis</span>(<span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">y =</span> volume_weighted, <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>,</span>
+<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a>                 <span class="at">size =</span> <span class="dv">3</span>,</span>
+<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a>                 <span class="at">color =</span> viridis<span class="sc">::</span><span class="fu">viridis</span>(<span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a>    <span class="co"># MOCI (scaled)</span></span>
+<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">y =</span> (moci <span class="sc">*</span> scale_factor) <span class="sc">+</span> vol_mid, <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>,</span>
+<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>                 <span class="at">color =</span> <span class="st">"grey30"</span>, <span class="at">linewidth =</span> <span class="fl">1.2</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(</span>
+<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a>      <span class="at">name =</span> <span class="st">"Weighted mean body volume (mm3)"</span>,</span>
+<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a>      <span class="at">sec.axis =</span> <span class="fu">sec_axis</span>(<span class="sc">~</span> (. <span class="sc">-</span> vol_mid) <span class="sc">/</span> scale_factor,</span>
+<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a>                          <span class="at">name =</span> <span class="st">"MOCI"</span>)) <span class="sc">+</span></span>
+<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
+<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a>  <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb30-48"><a href="#cb30-48" aria-hidden="true" tabindex="-1"></a>  <span class="at">title =</span> <span class="fu">bquote</span>(<span class="fu">italic</span>(.(species_name)))</span>
+<span id="cb30-49"><a href="#cb30-49" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span></span>
+<span id="cb30-50"><a href="#cb30-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-51"><a href="#cb30-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb30-52"><a href="#cb30-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb30-53"><a href="#cb30-53" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb30-54"><a href="#cb30-54" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>)</span>
+<span id="cb30-55"><a href="#cb30-55" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb30-56"><a href="#cb30-56" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 <section id="euphausia-pacifica" class="level2">
 <h2 class="anchored" data-anchor-id="euphausia-pacifica">Euphausia pacifica</h2>
-<p>filtering species and N/As:</p>
+<p>filtering species:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>epac_df <span class="ot">&lt;-</span> df_lmm <span class="sc">%&gt;%</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"EPAC"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(length_weighted))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>epac_df <span class="ot">&lt;-</span> df_vol <span class="sc">%&gt;%</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"EPAC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Creating separate dataframe for adults and juveniles:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>epac_adult <span class="ot">&lt;-</span> epac_df <span class="sc">%&gt;%</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>epac_juv <span class="ot">&lt;-</span> epac_df <span class="sc">%&gt;%</span></span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>epac_adult <span class="ot">&lt;-</span> epac_df <span class="sc">%&gt;%</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>epac_juv <span class="ot">&lt;-</span> epac_df <span class="sc">%&gt;%</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>figure showing the size of adults over the years:</p>
+<p>Creating plot for EPAC adult:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(epac_adult, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted, <span class="at">color =</span> type)) <span class="sc">+</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"f"</span> <span class="ot">=</span> <span class="st">"#E64B35"</span>, <span class="st">"m"</span> <span class="ot">=</span> <span class="st">"#4DBBD5"</span>)) <span class="sc">+</span></span>
-<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>, <span class="at">color =</span> <span class="st">"Type"</span>) <span class="sc">+</span></span>
-<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_adult</span>(epac_adult)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="KrillSize_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-21-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>figure showing the size of juveniles over the years:</p>
+<p>Creating plot for EPAC juveniles:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(epac_juv, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted)) <span class="sc">+</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>) <span class="sc">+</span></span>
-<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_juv</span>(epac_juv)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="KrillSize_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>Running model with epac adults: first checking variables</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>epac_adult <span class="ot">&lt;-</span> epac_adult <span class="sc">%&gt;%</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">year =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)),</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">cruise =</span> <span class="fu">factor</span>(base_date),</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">jar =</span> <span class="fu">factor</span>(jar),</span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">type =</span> <span class="fu">factor</span>(type))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>running mixed models:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>model_epac <span class="ot">&lt;-</span> <span class="fu">lmer</span>(length_weighted <span class="sc">~</span> year <span class="sc">+</span> type <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">|</span> cruise<span class="sc">/</span>jar),</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> epac_adult)</span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(model_epac)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Linear mixed model fit by REML. t-tests use Satterthwaite's method [
-lmerModLmerTest]
-Formula: length_weighted ~ year + type + (1 | cruise/jar)
-   Data: epac_adult
-
-REML criterion at convergence: 3495.4
-
-Scaled residuals: 
-    Min      1Q  Median      3Q     Max 
--3.5110 -0.4311 -0.0226  0.4251  3.8181 
-
-Random effects:
- Groups     Name        Variance Std.Dev.
- jar:cruise (Intercept) 2.365    1.538   
- cruise     (Intercept) 1.528    1.236   
- Residual               1.925    1.388   
-Number of obs: 839, groups:  jar:cruise, 442; cruise, 58
-
-Fixed effects:
-             Estimate Std. Error        df t value Pr(&gt;|t|)    
-(Intercept)  15.24475    0.81291  34.13303  18.753  &lt; 2e-16 ***
-year2006      0.28495    1.13281  31.95445   0.252  0.80301    
-year2007      3.43308    1.13014  31.72360   3.038  0.00474 ** 
-year2008      2.93955    1.14927  34.07918   2.558  0.01515 *  
-year2009      0.10797    1.12043  37.42482   0.096  0.92374    
-year2010     -0.26839    1.10772  37.36266  -0.242  0.80988    
-year2011     -0.33374    1.15863  35.19087  -0.288  0.77500    
-year2012     -0.40743    1.15714  35.04501  -0.352  0.72687    
-year2013      0.41613    1.15045  34.25344   0.362  0.71979    
-year2014     -1.64035    1.29111  53.41263  -1.270  0.20941    
-year2015     -1.97879    1.15415  34.69040  -1.715  0.09536 .  
-year2016     -0.33651    1.13306  32.00555  -0.297  0.76839    
-year2017     -0.09163    1.14331  33.41887  -0.080  0.93660    
-year2018      0.99385    1.14609  33.12146   0.867  0.39209    
-year2019     -0.01414    1.14142  33.13168  -0.012  0.99019    
-year2021     -0.04138    1.14948  34.13180  -0.036  0.97149    
-year2022     -0.38620    1.24275  40.26791  -0.311  0.75759    
-year2023     -1.02877    1.19039  38.53905  -0.864  0.39281    
-year2024      0.42010    1.28095  33.67853   0.328  0.74497    
-typem        -0.26913    0.09738 388.98242  -2.764  0.00599 ** 
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>
-Correlation matrix not shown by default, as p = 20 &gt; 12.
-Use print(x, correlation=TRUE)  or
-    vcov(x)        if you need it</code></pre>
-</div>
-</div>
-<p>running anova</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">anova</span>(model_epac)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Type III Analysis of Variance Table with Satterthwaite's method
-     Sum Sq Mean Sq NumDF  DenDF F value   Pr(&gt;F)   
-year 85.177   4.732    18  36.10  2.4580 0.010567 * 
-type 14.704  14.704     1 388.98  7.6379 0.005987 **
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
-</div>
-</div>
-<p>making a plot for years:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(emmeans)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Welcome to emmeans.
-Caution: You lose important information if you filter this package's results.
-See '? untidy'</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>year_means <span class="ot">&lt;-</span> <span class="fu">emmeans</span>(model_epac, <span class="sc">~</span> year)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Cannot use mode = "kenward-roger" because *pbkrtest* package is not installed</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(year_means)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="KrillSize_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -474,37 +543,32 @@ See '? untidy'</code></pre>
 </section>
 <section id="thysanoessa-spinifera" class="level2">
 <h2 class="anchored" data-anchor-id="thysanoessa-spinifera">Thysanoessa spinifera</h2>
-<p>filtering species and N/As:</p>
+<p>filtering species:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>tspin_df <span class="ot">&lt;-</span> df_lmm <span class="sc">%&gt;%</span></span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"TSPIN"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(length_weighted))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>tspin_df <span class="ot">&lt;-</span> df_vol <span class="sc">%&gt;%</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"TSPIN"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Creating separate dataframe for adults and juveniles:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>tspin_adult <span class="ot">&lt;-</span> tspin_df <span class="sc">%&gt;%</span></span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>tspin_juv <span class="ot">&lt;-</span> tspin_df <span class="sc">%&gt;%</span></span>
-<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>tspin_adult <span class="ot">&lt;-</span> tspin_df <span class="sc">%&gt;%</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>tspin_juv <span class="ot">&lt;-</span> tspin_df <span class="sc">%&gt;%</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>figure showing the size of adults over the years:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tspin_adult, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted, <span class="at">color =</span> type)) <span class="sc">+</span></span>
-<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb42-7"><a href="#cb42-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb42-8"><a href="#cb42-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-9"><a href="#cb42-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"f"</span> <span class="ot">=</span> <span class="st">"#E64B35"</span>, <span class="st">"m"</span> <span class="ot">=</span> <span class="st">"#4DBBD5"</span>)) <span class="sc">+</span></span>
-<span id="cb42-10"><a href="#cb42-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-11"><a href="#cb42-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>, <span class="at">color =</span> <span class="st">"Type"</span>) <span class="sc">+</span></span>
-<span id="cb42-12"><a href="#cb42-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-13"><a href="#cb42-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb42-14"><a href="#cb42-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb42-15"><a href="#cb42-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_adult</span>(tspin_adult)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Creating plot for EPAC juveniles:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_juv</span>(tspin_juv)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -513,62 +577,35 @@ See '? untidy'</code></pre>
 </div>
 </div>
 </div>
-<p>figure showing the size of juveniles over the years:</p>
+</section>
+<section id="nematocellis-difficilis" class="level2">
+<h2 class="anchored" data-anchor-id="nematocellis-difficilis">Nematocellis difficilis</h2>
+<p>filtering species:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(tspin_juv, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted)) <span class="sc">+</span></span>
-<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>) <span class="sc">+</span></span>
-<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>ndif_df <span class="ot">&lt;-</span> df_vol <span class="sc">%&gt;%</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"NDIF"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Creating separate dataframe for adults and juveniles:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>ndif_adult <span class="ot">&lt;-</span> ndif_df <span class="sc">%&gt;%</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>ndif_juv <span class="ot">&lt;-</span> ndif_df <span class="sc">%&gt;%</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_adult</span>(ndif_adult)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="KrillSize_files/figure-html/unnamed-chunk-27-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-29-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-<section id="nematoscelis-difficilis" class="level2">
-<h2 class="anchored" data-anchor-id="nematoscelis-difficilis">Nematoscelis difficilis</h2>
-<p>filtering species and N/As:</p>
+<p>Creating plot for EPAC juveniles:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>ndif_df <span class="ot">&lt;-</span> df_lmm <span class="sc">%&gt;%</span></span>
-<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(species_code <span class="sc">==</span> <span class="st">"NDIF"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(length_weighted))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Creating separate dataframe for adults and juveniles:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>ndif_adult <span class="ot">&lt;-</span> ndif_df <span class="sc">%&gt;%</span></span>
-<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"f"</span>, <span class="st">"m"</span>))</span>
-<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>ndif_juv <span class="ot">&lt;-</span> ndif_df <span class="sc">%&gt;%</span></span>
-<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">"juv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>figure showing the size of adults over the years:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(ndif_adult, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted, <span class="at">color =</span> type)) <span class="sc">+</span></span>
-<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"f"</span> <span class="ot">=</span> <span class="st">"#E64B35"</span>, <span class="st">"m"</span> <span class="ot">=</span> <span class="st">"#4DBBD5"</span>)) <span class="sc">+</span></span>
-<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>, <span class="at">color =</span> <span class="st">"Type"</span>) <span class="sc">+</span></span>
-<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-13"><a href="#cb46-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb46-14"><a href="#cb46-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-15"><a href="#cb46-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_juv</span>(ndif_juv)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -577,29 +614,217 @@ See '? untidy'</code></pre>
 </div>
 </div>
 </div>
-<p>figure showing the size of juveniles over the years:</p>
+</section>
+</section>
+<section id="comparing-species" class="level1">
+<h1>comparing species</h1>
+<p>creating the df</p>
+<p>plotting m</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(ndif_juv, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(<span class="fu">year</span>(base_date)), <span class="at">y =</span> length_weighted)) <span class="sc">+</span></span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">alpha =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
-<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.2</span>, <span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"line"</span>, <span class="fu">aes</span>(<span class="at">group =</span> type), <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_summary</span>(<span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"point"</span>, <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
-<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Year"</span>, <span class="at">y =</span> <span class="st">"Weighted mean body length (mm)"</span>) <span class="sc">+</span></span>
-<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb47-11"><a href="#cb47-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb47-12"><a href="#cb47-12" aria-hidden="true" tabindex="-1"></a><span class="fu">theme</span>(<span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(), <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>plot_adultm_species_compare <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">sex_filter =</span> <span class="st">"m"</span>, <span class="at">title_label =</span> <span class="st">"Adults"</span>) {</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  data <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">year =</span> <span class="fu">year</span>(base_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(type <span class="sc">==</span> sex_filter)</span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Volume summary (per species per year)</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>  summary_vol <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year, species_code) <span class="sc">%&gt;%</span></span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">volume_weighted =</span> <span class="fu">mean</span>(volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># MOCI summary (shared across species)</span></span>
+<span id="cb43-14"><a href="#cb43-14" aria-hidden="true" tabindex="-1"></a>  summary_moci <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb43-15"><a href="#cb43-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb43-16"><a href="#cb43-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">moci =</span> <span class="fu">mean</span>(moci, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb43-17"><a href="#cb43-17" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb43-18"><a href="#cb43-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-19"><a href="#cb43-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Scaling (same axis)</span></span>
+<span id="cb43-20"><a href="#cb43-20" aria-hidden="true" tabindex="-1"></a>  vol_min <span class="ot">&lt;-</span> <span class="fu">min</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb43-21"><a href="#cb43-21" aria-hidden="true" tabindex="-1"></a>  vol_max <span class="ot">&lt;-</span> <span class="fu">max</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb43-22"><a href="#cb43-22" aria-hidden="true" tabindex="-1"></a>  vol_mid <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">c</span>(vol_min, vol_max))</span>
+<span id="cb43-23"><a href="#cb43-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-24"><a href="#cb43-24" aria-hidden="true" tabindex="-1"></a>  moci_max <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(summary_moci<span class="sc">$</span>moci), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb43-25"><a href="#cb43-25" aria-hidden="true" tabindex="-1"></a>  scale_factor <span class="ot">&lt;-</span> (vol_max <span class="sc">-</span> vol_min) <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> moci_max)</span>
+<span id="cb43-26"><a href="#cb43-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-27"><a href="#cb43-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb43-28"><a href="#cb43-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-29"><a href="#cb43-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Species lines (viridis)</span></span>
+<span id="cb43-30"><a href="#cb43-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb43-31"><a href="#cb43-31" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb43-32"><a href="#cb43-32" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> volume_weighted,</span>
+<span id="cb43-33"><a href="#cb43-33" aria-hidden="true" tabindex="-1"></a>                  <span class="at">color =</span> species_code,</span>
+<span id="cb43-34"><a href="#cb43-34" aria-hidden="true" tabindex="-1"></a>                  <span class="at">group =</span> species_code),</span>
+<span id="cb43-35"><a href="#cb43-35" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb43-36"><a href="#cb43-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-37"><a href="#cb43-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb43-38"><a href="#cb43-38" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb43-39"><a href="#cb43-39" aria-hidden="true" tabindex="-1"></a>                   <span class="at">y =</span> volume_weighted,</span>
+<span id="cb43-40"><a href="#cb43-40" aria-hidden="true" tabindex="-1"></a>                   <span class="at">color =</span> species_code),</span>
+<span id="cb43-41"><a href="#cb43-41" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb43-42"><a href="#cb43-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-43"><a href="#cb43-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># MOCI (shared, dashed)</span></span>
+<span id="cb43-44"><a href="#cb43-44" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_moci,</span>
+<span id="cb43-45"><a href="#cb43-45" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb43-46"><a href="#cb43-46" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> (moci <span class="sc">*</span> scale_factor) <span class="sc">+</span> vol_mid,</span>
+<span id="cb43-47"><a href="#cb43-47" aria-hidden="true" tabindex="-1"></a>                  <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb43-48"><a href="#cb43-48" aria-hidden="true" tabindex="-1"></a>              <span class="at">color =</span> <span class="st">"grey30"</span>,</span>
+<span id="cb43-49"><a href="#cb43-49" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="fl">1.2</span>,</span>
+<span id="cb43-50"><a href="#cb43-50" aria-hidden="true" tabindex="-1"></a>              <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb43-51"><a href="#cb43-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-52"><a href="#cb43-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(</span>
+<span id="cb43-53"><a href="#cb43-53" aria-hidden="true" tabindex="-1"></a>      <span class="at">name =</span> <span class="st">"Weighted mean body volume (mm3)"</span>,</span>
+<span id="cb43-54"><a href="#cb43-54" aria-hidden="true" tabindex="-1"></a>      <span class="at">sec.axis =</span> <span class="fu">sec_axis</span>(<span class="sc">~</span> (. <span class="sc">-</span> vol_mid) <span class="sc">/</span> scale_factor,</span>
+<span id="cb43-55"><a href="#cb43-55" aria-hidden="true" tabindex="-1"></a>                          <span class="at">name =</span> <span class="st">"MOCI"</span>)) <span class="sc">+</span></span>
+<span id="cb43-56"><a href="#cb43-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-57"><a href="#cb43-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"D"</span>, <span class="at">end =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb43-58"><a href="#cb43-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-59"><a href="#cb43-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
+<span id="cb43-60"><a href="#cb43-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb43-61"><a href="#cb43-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">color =</span> <span class="st">"Species"</span>,</span>
+<span id="cb43-62"><a href="#cb43-62" aria-hidden="true" tabindex="-1"></a>      <span class="at">title =</span> <span class="fu">paste</span>(title_label, <span class="st">"-"</span>, sex_filter)) <span class="sc">+</span></span>
+<span id="cb43-63"><a href="#cb43-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-64"><a href="#cb43-64" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb43-65"><a href="#cb43-65" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb43-66"><a href="#cb43-66" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb43-67"><a href="#cb43-67" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span>
+<span id="cb43-68"><a href="#cb43-68" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_adultm_species_compare</span>(df_vol)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="KrillSize_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-32-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>plotting f</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>plot_adultf_species_compare <span class="ot">&lt;-</span> <span class="cf">function</span>(data, <span class="at">sex_filter =</span> <span class="st">"f"</span>, <span class="at">title_label =</span> <span class="st">"Adults"</span>) {</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>  data <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">year =</span> <span class="fu">year</span>(base_date)) <span class="sc">%&gt;%</span></span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(type <span class="sc">==</span> sex_filter)</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Volume summary (per species per year)</span></span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>  summary_vol <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year, species_code) <span class="sc">%&gt;%</span></span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">volume_weighted =</span> <span class="fu">mean</span>(volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb45-12"><a href="#cb45-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-13"><a href="#cb45-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># MOCI summary (shared across species)</span></span>
+<span id="cb45-14"><a href="#cb45-14" aria-hidden="true" tabindex="-1"></a>  summary_moci <span class="ot">&lt;-</span> data <span class="sc">%&gt;%</span></span>
+<span id="cb45-15"><a href="#cb45-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(year) <span class="sc">%&gt;%</span></span>
+<span id="cb45-16"><a href="#cb45-16" aria-hidden="true" tabindex="-1"></a>    <span class="fu">summarise</span>(<span class="at">moci =</span> <span class="fu">mean</span>(moci, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb45-17"><a href="#cb45-17" aria-hidden="true" tabindex="-1"></a>              <span class="at">.groups =</span> <span class="st">"drop"</span>)</span>
+<span id="cb45-18"><a href="#cb45-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-19"><a href="#cb45-19" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Scaling (same axis)</span></span>
+<span id="cb45-20"><a href="#cb45-20" aria-hidden="true" tabindex="-1"></a>  vol_min <span class="ot">&lt;-</span> <span class="fu">min</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb45-21"><a href="#cb45-21" aria-hidden="true" tabindex="-1"></a>  vol_max <span class="ot">&lt;-</span> <span class="fu">max</span>(summary_vol<span class="sc">$</span>volume_weighted, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb45-22"><a href="#cb45-22" aria-hidden="true" tabindex="-1"></a>  vol_mid <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">c</span>(vol_min, vol_max))</span>
+<span id="cb45-23"><a href="#cb45-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-24"><a href="#cb45-24" aria-hidden="true" tabindex="-1"></a>  moci_max <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(summary_moci<span class="sc">$</span>moci), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb45-25"><a href="#cb45-25" aria-hidden="true" tabindex="-1"></a>  scale_factor <span class="ot">&lt;-</span> (vol_max <span class="sc">-</span> vol_min) <span class="sc">/</span> (<span class="dv">2</span> <span class="sc">*</span> moci_max)</span>
+<span id="cb45-26"><a href="#cb45-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-27"><a href="#cb45-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span></span>
+<span id="cb45-28"><a href="#cb45-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-29"><a href="#cb45-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Species lines (viridis)</span></span>
+<span id="cb45-30"><a href="#cb45-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb45-31"><a href="#cb45-31" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb45-32"><a href="#cb45-32" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> volume_weighted,</span>
+<span id="cb45-33"><a href="#cb45-33" aria-hidden="true" tabindex="-1"></a>                  <span class="at">color =</span> species_code,</span>
+<span id="cb45-34"><a href="#cb45-34" aria-hidden="true" tabindex="-1"></a>                  <span class="at">group =</span> species_code),</span>
+<span id="cb45-35"><a href="#cb45-35" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb45-36"><a href="#cb45-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-37"><a href="#cb45-37" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>(<span class="at">data =</span> summary_vol,</span>
+<span id="cb45-38"><a href="#cb45-38" aria-hidden="true" tabindex="-1"></a>               <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb45-39"><a href="#cb45-39" aria-hidden="true" tabindex="-1"></a>                   <span class="at">y =</span> volume_weighted,</span>
+<span id="cb45-40"><a href="#cb45-40" aria-hidden="true" tabindex="-1"></a>                   <span class="at">color =</span> species_code),</span>
+<span id="cb45-41"><a href="#cb45-41" aria-hidden="true" tabindex="-1"></a>               <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb45-42"><a href="#cb45-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-43"><a href="#cb45-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># MOCI (shared, dashed)</span></span>
+<span id="cb45-44"><a href="#cb45-44" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_line</span>(<span class="at">data =</span> summary_moci,</span>
+<span id="cb45-45"><a href="#cb45-45" aria-hidden="true" tabindex="-1"></a>              <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">factor</span>(year),</span>
+<span id="cb45-46"><a href="#cb45-46" aria-hidden="true" tabindex="-1"></a>                  <span class="at">y =</span> (moci <span class="sc">*</span> scale_factor) <span class="sc">+</span> vol_mid,</span>
+<span id="cb45-47"><a href="#cb45-47" aria-hidden="true" tabindex="-1"></a>                  <span class="at">group =</span> <span class="dv">1</span>),</span>
+<span id="cb45-48"><a href="#cb45-48" aria-hidden="true" tabindex="-1"></a>              <span class="at">color =</span> <span class="st">"grey30"</span>,</span>
+<span id="cb45-49"><a href="#cb45-49" aria-hidden="true" tabindex="-1"></a>              <span class="at">linewidth =</span> <span class="fl">1.2</span>,</span>
+<span id="cb45-50"><a href="#cb45-50" aria-hidden="true" tabindex="-1"></a>              <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb45-51"><a href="#cb45-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-52"><a href="#cb45-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(</span>
+<span id="cb45-53"><a href="#cb45-53" aria-hidden="true" tabindex="-1"></a>      <span class="at">name =</span> <span class="st">"Weighted mean body volume (mm3)"</span>,</span>
+<span id="cb45-54"><a href="#cb45-54" aria-hidden="true" tabindex="-1"></a>      <span class="at">sec.axis =</span> <span class="fu">sec_axis</span>(<span class="sc">~</span> (. <span class="sc">-</span> vol_mid) <span class="sc">/</span> scale_factor,</span>
+<span id="cb45-55"><a href="#cb45-55" aria-hidden="true" tabindex="-1"></a>                          <span class="at">name =</span> <span class="st">"MOCI"</span>)) <span class="sc">+</span></span>
+<span id="cb45-56"><a href="#cb45-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-57"><a href="#cb45-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">"D"</span>, <span class="at">end =</span> <span class="fl">0.85</span>) <span class="sc">+</span></span>
+<span id="cb45-58"><a href="#cb45-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-59"><a href="#cb45-59" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(</span>
+<span id="cb45-60"><a href="#cb45-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="st">"Year"</span>,</span>
+<span id="cb45-61"><a href="#cb45-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">color =</span> <span class="st">"Species"</span>,</span>
+<span id="cb45-62"><a href="#cb45-62" aria-hidden="true" tabindex="-1"></a>      <span class="at">title =</span> <span class="fu">paste</span>(title_label, <span class="st">"-"</span>, sex_filter)) <span class="sc">+</span></span>
+<span id="cb45-63"><a href="#cb45-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-64"><a href="#cb45-64" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_minimal</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb45-65"><a href="#cb45-65" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb45-66"><a href="#cb45-66" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb45-67"><a href="#cb45-67" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span>
+<span id="cb45-68"><a href="#cb45-68" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_adultf_species_compare</span>(df_vol)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="KrillSize_files/figure-html/unnamed-chunk-34-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
 </section>
+<section id="maps" class="level1">
+<h1>Maps</h1>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>df_map <span class="ot">&lt;-</span> df <span class="sc">%&gt;%</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>    loc_data <span class="sc">%&gt;%</span></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(ID_Jar, Lon_IN, Lat_IN),</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"jar"</span> <span class="ot">=</span> <span class="st">"ID_Jar"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>making a clean df:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>df_map_clean <span class="ot">&lt;-</span> df_map <span class="sc">%&gt;%</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(jar, cruise, Lat_IN, Lon_IN, base_date, line, station) <span class="sc">%&gt;%</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">distinct</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Lat_IN), <span class="sc">!</span><span class="fu">is.na</span>(Lon_IN))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>creating a map: ADD BATHYMETRY LAYER, ADD FIXED TRANSECT LINES CHECK: line 2: 2141, 2142, line 4: 2131, 2134, 2137, 2140</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>pal <span class="ot">&lt;-</span> <span class="fu">colorFactor</span>(<span class="fu">viridis</span>(<span class="dv">3</span>, <span class="at">option =</span> <span class="st">"D"</span>), df_map_clean<span class="sc">$</span>line)</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="fu">leaflet</span>(df_map_clean) <span class="sc">%&gt;%</span></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">addTiles</span>() <span class="sc">%&gt;%</span>  <span class="co"># base map</span></span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">addCircleMarkers</span>(</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">lng =</span> <span class="sc">~</span>Lon_IN,</span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">lat =</span> <span class="sc">~</span>Lat_IN,</span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">radius =</span> <span class="dv">5</span>,</span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">stroke =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">fillOpacity =</span> <span class="fl">0.8</span>,</span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">color =</span> <span class="sc">~</span><span class="fu">pal</span>(line),  <span class="co"># color by line</span></span>
+<span id="cb49-13"><a href="#cb49-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">label =</span> <span class="sc">~</span><span class="fu">paste</span>(<span class="st">"Jar:"</span>, jar, <span class="st">"&lt;br&gt;Cruise:"</span>, cruise, <span class="st">"&lt;br&gt;Line:"</span>, line)) <span class="sc">%&gt;%</span></span>
+<span id="cb49-14"><a href="#cb49-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">addLegend</span>(</span>
+<span id="cb49-15"><a href="#cb49-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"bottomright"</span>,</span>
+<span id="cb49-16"><a href="#cb49-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">pal =</span> pal,</span>
+<span id="cb49-17"><a href="#cb49-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="sc">~</span>line,  <span class="co"># must match palette</span></span>
+<span id="cb49-18"><a href="#cb49-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Line"</span>,</span>
+<span id="cb49-19"><a href="#cb49-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">opacity =</span> <span class="dv">1</span></span>
+<span id="cb49-20"><a href="#cb49-20" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-513431d9c223828b9f03" style="width:100%;height:464px;"></div>
+<script type="application/json" data-for="htmlwidget-513431d9c223828b9f03">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"https://openstreetmap.org/copyright/\">OpenStreetMap<\/a>,  <a href=\"https://opendatacommons.org/licenses/odbl/\">ODbL<\/a>"}]},{"method":"addCircleMarkers","args":[[38.04795,38.04795,38.04795,37.88486666666667,37.88486666666667,37.88486666666667,37.72461666666667,37.72461666666667,37.72461666666667,37.88393333333333,37.88393333333333,37.88393333333333,37.72515,37.72515,37.72515,38.04736666666667,38.04736666666667,38.04736666666667,37.88386666666667,37.88386666666667,37.88386666666667,37.72568333333334,37.72568333333334,37.72568333333334,37.8824833333333,37.88248333333333,37.88248333333333,37.72468333333333,37.72468333333333,37.72468333333333,37.72515,37.72515,37.72515,37.88431666666666,37.88431666666666,37.90656666666667,37.90656666666667,38.05168333333334,38.05168333333334,38.04775,38.04775,38.04775,38.058545,38.058545,38.05333333333333,38.05333333333333,38.05333333333333,38.04783333333334,38.04783333333334,38.04783333333334,37.97271666666666,37.97271666666666,37.97271666666666,37.88983333333334,37.88983333333334,37.88983333333334,37.887955,37.887955,37.887955,37.72933333333334,37.72681833333333,37.72083333333333,37.72083333333333,37.72083333333333,37.8927,37.8927,37.8867,37.8867,37.8867,37.8848,37.8848,37.8848,37.8825,37.8825,37.8825,37.8825,38.0489,38.0489,38.0489,38.0408,38.0408,38.0408,37.7369,37.7369,37.7369,37.7346,37.7346,37.7346,37.7284,37.7284,38.0484,38.0484,38.0484,37.8903,37.8903,37.889,37.889,37.889,37.8717,37.8717,37.8884,37.8884,37.8884,37.7235,37.7235,37.7235,37.7247,37.7247,37.7247,37.88435,37.88435,38.04726666666667,38.04726666666667,37.724,37.724,37.724,37.88188333333333,37.88188333333333,37.88188333333333,38.04586666666667,38.04586666666667,38.04586666666667,37.88368333333333,37.88368333333333,37.88368333333333,38.0465,38.0465,38.0465,37.72433333333333,37.72433333333333,37.72433333333333,37.72391666666667,37.72391666666667,37.72391666666667,37.88361666666667,37.88361666666667,37.88361666666667,37.71688333333334,38.04986666666667,38.04986666666667,37.88328333333333,37.88328333333333,37.72586666666667,37.72586666666667,37.72586666666667,37.88183333333333,37.88183333333333,37.88183333333333,37.72036666666666,37.72036666666666,37.72036666666666,37.88558333333334,37.88558333333334,37.88558333333334,38.0477,38.0477,37.72163333333334,37.72163333333334,37.72163333333334,37.88333333333333,37.88333333333333,37.88333333333333,37.72531666666666,37.88440166666667,37.88440166666667,37.88440166666667,38.04793333333333,38.04793333333333,38.04793333333333,37.7244,37.7244,37.7244,37.72,37.72,38.04888333333334,38.04888333333334,37.88218333333333,37.88218333333333,37.88218333333333,37.70541666666666,37.70541666666666,37.70541666666666,37.7224,37.7224,37.7224,37.88293333333333,37.88293333333333,37.88325,37.88325,38.0457,38.0457,38.0457,37.88651666666667,37.88651666666667,37.88651666666667,37.71036666666667,37.71036666666667,37.71036666666667,37.72225,38.04808333333333,38.04808333333333,38.04808333333333,37.88353333333333,37.88353333333333,37.88353333333333,38.04703333333333,38.04703333333333,38.04703333333333,37.88286666666666,37.88286666666666,37.88286666666666,37.71846666666666,37.71846666666666,37.71846666666666,38.04285,38.04285,38.04285,37.883,37.883,37.883,37.7229,37.7229,37.7229,37.8819,37.8819,38.04081666666666,38.04081666666666,38.04081666666666,37.88491666666667,37.88491666666667,37.88491666666667,37.72428333333333,37.72428333333333,37.72428333333333,37.88345,37.88345,37.88345,38.04708333333333,38.04708333333333,38.04708333333333,37.72475,37.72475,37.72475,37.88521666666666,37.88521666666666,37.88521666666666,38.0474476,38.0474476,38.0474476,38.04765,38.04765,37.89366666666667,37.89366666666667,37.89366666666667,37.70785,37.70785,37.70785,37.72593333333333,37.72593333333333,37.72593333333333,37.727,37.727,37.727,37.9683,37.9683,38.05065,38.05065,38.05065,37.724,37.724,37.8843,37.8843,38.0483,38.0483,38.0483,37.723398,37.723398,37.88334,37.88334,37.88334,38.047448,38.047448,37.7227,37.7227,37.7227,37.87538333333333,37.87538333333333,37.87538333333333,38.05951666666667,38.05951666666667,38.05951666666667,38.0362,38.0362,37.8894,37.8894,37.72313333333334,37.72313333333334,37.72313333333334,37.7231,37.7231,37.7231,37.72985,37.72985,37.72985,37.88343333333334,37.88343333333334,37.88343333333334,37.88213333333334,37.88213333333334,37.88213333333334,38.0428,38.0428,38.0428,38.03995,38.03995,38.03995,38.102,38.102,38.102,37.72123333333333,37.72123333333333,37.8667,37.8667,38.044,38.044,37.7135,37.7135,37.7135,37.8771,37.8771,37.8771,38.0429333333333,38.0429333333333,38.0429333333333,37.723398,37.723398,37.723398,37.88291666666667,37.88291666666667,38.04271666666666,38.04271666666666,37.72335,37.72335,37.72335,37.88286666666666,37.88286666666666,37.88286666666666,38.05005,38.05005,38.05005,37.71746666666667,37.71746666666667,37.71746666666667,37.87936666666667,37.87936666666667,37.87936666666667,38.04641666666667,38.04463333333333,38.04463333333333,38.04463333333333,37.72765,37.72765,37.88491666666667,37.88491666666667,38.04763333333333,37.71966666666667,37.71966666666667,37.71961666666667,37.71961666666667,37.71961666666667,37.72416666666667,37.72416666666667,37.72416666666667,37.72891666666666,37.72891666666666,37.72891666666666,37.87645,37.87645,37.87645,37.87966666666667,37.87966666666667,37.87966666666667,37.88531666666667,37.88531666666667,37.88531666666667,37.88061666666667,37.88061666666667,37.88061666666667,38.05481666666667,38.04798333333333,37.72436666666667,37.72436666666667,37.72436666666667,38.048,38.048,38.048,37.883,37.883,37.883,38.04739,38.04739,38.04739,37.883283,37.883283,37.883283,37.723344,37.723344,37.723344,37.889,37.889,37.889,37.8852,37.8852,37.8852,38.047867,38.047867,38.047867,38.04425,38.04425,38.04425,37.72478333333333,37.72478333333333,37.88618333333334,37.88618333333334,37.72573333333333,37.72573333333333,37.72573333333333,37.87975,37.87975,37.87975,38.04828333333333,38.04828333333333,38.04828333333333,37.72191666666667,37.72191666666667,37.83773333333333,37.83773333333333,37.83773333333333,38.0484,38.0484,38.0484,38.04853333333333,37.7266,37.7266,37.7266,37.88511666666667,37.88511666666667],[-123.5160166666667,-123.5160166666667,-123.5160166666667,-123.4122666666667,-123.4122666666667,-123.4122666666667,-123.15495,-123.15495,-123.15495,-123.41425,-123.41425,-123.41425,-123.1564833333333,-123.1564833333333,-123.1564833333333,-123.5131833333333,-123.5131833333333,-123.5131833333333,-123.4136,-123.4136,-123.4136,-123.166,-123.166,-123.166,-123.410533333333,-123.4105333333333,-123.4105333333333,-123.1547833333333,-123.1547833333333,-123.1547833333333,-123.1555166666667,-123.1555166666667,-123.1555166666667,-123.4106,-123.4106,-123.09085,-123.09085,-123.1840166666667,-123.1840166666667,-123.5163333333333,-123.5163333333333,-123.5163333333333,-123.1888033333333,-123.1888033333333,-123.382,-123.382,-123.382,-123.5211666666667,-123.5211666666667,-123.5211666666667,-123.4577333333333,-123.4577333333333,-123.4577333333333,-123.4675,-123.4675,-123.4675,-123.287045,-123.287045,-123.287045,-122.8914033333333,-123.06458,-123.2313333333333,-123.2313333333333,-123.2313333333333,-123.2122,-123.2122,-123.299,-123.299,-123.299,-123.3998,-123.3998,-123.3998,-123.4781,-123.4781,-123.4781,-123.4781,-123.5126,-123.5126,-123.5126,-123.3398,-123.3398,-123.3398,-123.2517,-123.2517,-123.2517,-123.1804,-123.1804,-123.1804,-122.9021,-122.9021,-123.5279,-123.5279,-123.5279,-123.2996,-123.2996,-123.3185,-123.3185,-123.3185,-123.3467,-123.3467,-123.4181,-123.4181,-123.4181,-123.1852,-123.1852,-123.1852,-123.1551833333333,-123.1551833333333,-123.1551833333333,-123.4113833333333,-123.4113833333333,-123.5141,-123.5141,-123.1581666666667,-123.1581666666667,-123.1581666666667,-123.4152833333333,-123.4152833333333,-123.4152833333333,-123.51475,-123.51475,-123.51475,-123.4151666666667,-123.4151666666667,-123.4151666666667,-123.5141666666667,-123.5141666666667,-123.5141666666667,-123.1565,-123.1565,-123.1565,-123.15455,-123.15455,-123.15455,-123.4102333333333,-123.4102333333333,-123.4102333333333,-123.15345,-123.5130833333333,-123.5130833333333,-123.4125,-123.4125,-123.1561166666667,-123.1561166666667,-123.1561166666667,-123.42395,-123.42395,-123.42395,-123.16425,-123.16425,-123.16425,-123.4075,-123.4075,-123.4075,-123.5148333333333,-123.5148333333333,-123.1570333333333,-123.1570333333333,-123.1570333333333,-123.4105666666667,-123.4105666666667,-123.4105666666667,-123.1590666666667,-123.4150166666667,-123.4150166666667,-123.4150166666667,-123.5151166666667,-123.5151166666667,-123.5151166666667,-123.1602833333333,-123.1602833333333,-123.1602833333333,-123.1310833333333,-123.1310833333333,-123.5156166666667,-123.5156166666667,-123.4182833333333,-123.4182833333333,-123.4182833333333,-123.1347833333333,-123.1347833333333,-123.1347833333333,-123.1517,-123.1517,-123.1517,-123.4095333333333,-123.4095333333333,-123.4126333333333,-123.4126333333333,-123.5163,-123.5163,-123.5163,-123.4307166666667,-123.4307166666667,-123.4307166666667,-123.1740333333333,-123.1740333333333,-123.1740333333333,-123.1607833333333,-123.5179666666667,-123.5179666666667,-123.5179666666667,-123.4159666666667,-123.4159666666667,-123.4159666666667,-123.5167833333333,-123.5167833333333,-123.5167833333333,-123.4159666666667,-123.4159666666667,-123.4159666666667,-123.1597833333333,-123.1597833333333,-123.1597833333333,-123.5193166666667,-123.5193166666667,-123.5193166666667,-123.4135,-123.4135,-123.4135,-123.1602166666667,-123.1602166666667,-123.1602166666667,-123.41645,-123.41645,-123.5188,-123.5188,-123.5188,-123.4135,-123.4135,-123.4135,-123.1521833333333,-123.1521833333333,-123.1521833333333,-123.4105833333333,-123.4105833333333,-123.4105833333333,-123.5114,-123.5114,-123.5114,-123.1562333333333,-123.1562333333333,-123.1562333333333,-123.4078,-123.4078,-123.4078,-123.5151749,-123.5151749,-123.5151749,-123.5311666666667,-123.5311666666667,-123.41575,-123.41575,-123.41575,-123.1428833333333,-123.1428833333333,-123.1428833333333,-123.15775,-123.15775,-123.15775,-123.04296,-123.04296,-123.04296,-123.4306,-123.4306,-123.51445,-123.51445,-123.51445,-123.161,-123.161,-123.4125,-123.4125,-123.5145,-123.5145,-123.5145,-123.185281,-123.185281,-123.427641,-123.427641,-123.427641,-123.515175,-123.515175,-123.159,-123.159,-123.159,-123.4077833333333,-123.4077833333333,-123.4077833333333,-123.515175,-123.515175,-123.515175,-123.5157,-123.5157,-123.4208,-123.4208,-123.1596333333333,-123.1596333333333,-123.1596333333333,-123.1679,-123.1679,-123.1679,-123.1705333333333,-123.1705333333333,-123.1705333333333,-123.4180666666667,-123.4180666666667,-123.4180666666667,-123.41775,-123.41775,-123.41775,-123.5175666666667,-123.5175666666667,-123.5175666666667,-123.5158,-123.5158,-123.5158,-123.38115,-123.38115,-123.38115,-123.1582666666667,-123.1582666666667,-123.4082,-123.4082,-123.5123,-123.5123,-123.15375,-123.15375,-123.15375,-123.4082,-123.4082,-123.4082,-123.5148166666667,-123.5148166666667,-123.5148166666667,-123.185281,-123.185281,-123.185281,-123.4064166666667,-123.4064166666667,-123.5138666666667,-123.5138666666667,-123.15875,-123.15875,-123.15875,-123.4134833333333,-123.4134833333333,-123.4134833333333,-123.5198666666667,-123.5198666666667,-123.5198666666667,-123.2786666666667,-123.2786666666667,-123.2786666666667,-123.4076666666667,-123.4076666666667,-123.4076666666667,-123.51165,-123.5140333333333,-123.5140333333333,-123.5140333333333,-123.1604,-123.1604,-123.4128,-123.4128,-123.5134666666667,-122.8226833333333,-122.8226833333333,-122.8766666666667,-122.8766666666667,-122.8766666666667,-122.9163166666667,-122.9163166666667,-122.9163166666667,-122.8063,-122.8063,-122.8063,-122.5809833333333,-122.5809833333333,-122.5809833333333,-122.6205666666667,-122.6205666666667,-122.6205666666667,-122.68295,-122.68295,-122.68295,-122.58645,-122.58645,-122.58645,-122.6535833333333,-122.4827166666667,-123.1615,-123.1615,-123.1615,-123.5167,-123.5167,-123.5167,-123.413,-123.413,-123.413,-123.514972,-123.514972,-123.514972,-123.427436,-123.427436,-123.427436,-123.185075,-123.185075,-123.185075,-123.404,-123.404,-123.404,-123.41313,-123.41313,-123.41313,-123.516567,-123.516567,-123.516567,-123.5191,-123.5191,-123.5191,-123.1600666666667,-123.1600666666667,-123.41465,-123.41465,-123.1572333333333,-123.1572333333333,-123.1572333333333,-123.4054,-123.4054,-123.4054,-123.51265,-123.51265,-123.51265,-123.1674833333333,-123.1674833333333,-123.4061333333333,-123.4061333333333,-123.4061333333333,-123.515135,-123.515135,-123.515135,-123.5144333333333,-123.16055,-123.16055,-123.16055,-123.4173166666667,-123.4173166666667],5,null,null,{"interactive":true,"className":"","stroke":false,"color":["#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#440154","#440154","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C"],"weight":5,"opacity":0.5,"fill":true,"fillColor":["#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#440154","#440154","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#440154","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#FDE725","#FDE725","#FDE725","#440154","#440154","#440154","#21908C","#21908C","#21908C","#440154","#440154","#440154","#21908C","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#FDE725","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#FDE725","#FDE725","#21908C","#21908C","#21908C","#440154","#440154","#440154","#440154","#FDE725","#FDE725","#FDE725","#21908C","#21908C"],"fillOpacity":0.8},null,null,null,null,["Jar: 194 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 2","Jar: 195 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 2","Jar: 196 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 2","Jar: 197 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 4","Jar: 198 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 4","Jar: 199 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 4","Jar: 200 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 6","Jar: 201 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 6","Jar: 202 &lt;br&gt;Cruise: GOF0505 &lt;br&gt;Line: 6","Jar: 203 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 4","Jar: 204 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 4","Jar: 205 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 4","Jar: 206 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 6","Jar: 207 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 6","Jar: 208 &lt;br&gt;Cruise: GOF0506 &lt;br&gt;Line: 6","Jar: 237 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 2","Jar: 238 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 2","Jar: 239 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 2","Jar: 240 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 4","Jar: 241 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 4","Jar: 242 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 4","Jar: 243 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 6","Jar: 244 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 6","Jar: 245 &lt;br&gt;Cruise: GOF0507 &lt;br&gt;Line: 6","Jar: 278 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 4","Jar: 279 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 4","Jar: 280 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 4","Jar: 281 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 6","Jar: 282 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 6","Jar: 283 &lt;br&gt;Cruise: GOF0605 &lt;br&gt;Line: 6","Jar: 302 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 6","Jar: 303 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 6","Jar: 304 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 6","Jar: 305 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 4","Jar: 306 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 4","Jar: 307 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 4","Jar: 308 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 4","Jar: 309 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 2","Jar: 310 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 2","Jar: 311 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 2","Jar: 312 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 2","Jar: 313 &lt;br&gt;Cruise: GOF0606 &lt;br&gt;Line: 2","Jar: 433 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 434 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 435 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 436 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 437 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 438 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 439 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 440 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 441 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 442 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 443 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 2","Jar: 444 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 445 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 446 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 447 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 448 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 449 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 4","Jar: 472 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 6","Jar: 476 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 6","Jar: 486 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 6","Jar: 487 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 6","Jar: 488 &lt;br&gt;Cruise: GOF0607 &lt;br&gt;Line: 6","Jar: 599 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 600 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 601 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 602 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 603 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 604 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 605 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 606 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 607 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 608 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 609 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 610 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 4","Jar: 614 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 615 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 616 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 617 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 618 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 619 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 2","Jar: 623 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 624 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 625 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 626 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 627 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 628 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 639 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 640 &lt;br&gt;Cruise: GOF0705 &lt;br&gt;Line: 6","Jar: 701 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 2","Jar: 702 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 2","Jar: 703 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 2","Jar: 716 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 717 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 719 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 720 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 721 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 723 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 724 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 725 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 726 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 727 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 4","Jar: 749 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 6","Jar: 750 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 6","Jar: 751 &lt;br&gt;Cruise: GOF0706 &lt;br&gt;Line: 6","Jar: 776 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 6","Jar: 777 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 6","Jar: 778 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 6","Jar: 779 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 4","Jar: 780 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 4","Jar: 781 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 2","Jar: 782 &lt;br&gt;Cruise: GOF0709 &lt;br&gt;Line: 2","Jar: 976 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 6","Jar: 977 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 6","Jar: 978 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 6","Jar: 979 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 4","Jar: 980 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 4","Jar: 981 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 4","Jar: 982 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 2","Jar: 983 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 2","Jar: 984 &lt;br&gt;Cruise: GOF0805 &lt;br&gt;Line: 2","Jar: 1002 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 4","Jar: 1003 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 4","Jar: 1004 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 4","Jar: 1005 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 2","Jar: 1006 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 2","Jar: 1007 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 2","Jar: 1008 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 6","Jar: 1009 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 6","Jar: 1010 &lt;br&gt;Cruise: GOF0806 &lt;br&gt;Line: 6","Jar: 1028 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 6","Jar: 1029 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 6","Jar: 1030 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 6","Jar: 1031 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 4","Jar: 1032 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 4","Jar: 1033 &lt;br&gt;Cruise: GOF0809 &lt;br&gt;Line: 4","Jar: 1041 &lt;br&gt;Cruise: GOF0905 &lt;br&gt;Line: 6","Jar: 1060 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 2","Jar: 1061 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 2","Jar: 1062 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 4","Jar: 1063 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 4","Jar: 1064 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 6","Jar: 1065 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 6","Jar: 1066 &lt;br&gt;Cruise: GOF0906 &lt;br&gt;Line: 6","Jar: 1080 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 4","Jar: 1081 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 4","Jar: 1082 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 4","Jar: 1083 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 6","Jar: 1084 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 6","Jar: 1085 &lt;br&gt;Cruise: GOF0907 &lt;br&gt;Line: 6","Jar: 1101 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 4","Jar: 1102 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 4","Jar: 1103 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 4","Jar: 1104 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 2","Jar: 1105 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 2","Jar: 1106 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 6","Jar: 1107 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 6","Jar: 1108 &lt;br&gt;Cruise: GOF0909 &lt;br&gt;Line: 6","Jar: 1231 &lt;br&gt;Cruise: ACC1005 &lt;br&gt;Line: 4","Jar: 1232 &lt;br&gt;Cruise: ACC1005 &lt;br&gt;Line: 4","Jar: 1233 &lt;br&gt;Cruise: ACC1005 &lt;br&gt;Line: 4","Jar: 1234 &lt;br&gt;Cruise: ACC1005 &lt;br&gt;Line: 6","Jar: 1268 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 4","Jar: 1269 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 4","Jar: 1270 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 4","Jar: 1271 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 2","Jar: 1272 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 2","Jar: 1273 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 2","Jar: 1274 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 6","Jar: 1275 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 6","Jar: 1276 &lt;br&gt;Cruise: ACC1007 &lt;br&gt;Line: 6","Jar: 1283 &lt;br&gt;Cruise: ACC1006 &lt;br&gt;Line: 6","Jar: 1284 &lt;br&gt;Cruise: ACC1006 &lt;br&gt;Line: 6","Jar: 1308 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 2","Jar: 1309 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 2","Jar: 1310 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 4","Jar: 1311 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 4","Jar: 1312 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 4","Jar: 1313 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 6","Jar: 1314 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 6","Jar: 1315 &lt;br&gt;Cruise: ACC1009 &lt;br&gt;Line: 6","Jar: 1340 &lt;br&gt;Cruise: ACC1105 &lt;br&gt;Line: 6","Jar: 1341 &lt;br&gt;Cruise: ACC1105 &lt;br&gt;Line: 6","Jar: 1342 &lt;br&gt;Cruise: ACC1105 &lt;br&gt;Line: 6","Jar: 1343 &lt;br&gt;Cruise: ACC1105 &lt;br&gt;Line: 4","Jar: 1344 &lt;br&gt;Cruise: ACC1105 &lt;br&gt;Line: 4","Jar: 1361 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 4","Jar: 1362 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 4","Jar: 1363 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 2","Jar: 1364 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 2","Jar: 1365 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 2","Jar: 1366 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 4","Jar: 1367 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 4","Jar: 1368 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 4","Jar: 1369 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 6","Jar: 1370 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 6","Jar: 1371 &lt;br&gt;Cruise: ACC1107 &lt;br&gt;Line: 6","Jar: 1388 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 6","Jar: 1390 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 2","Jar: 1391 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 2","Jar: 1392 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 2","Jar: 1396 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 4","Jar: 1397 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 4","Jar: 1398 &lt;br&gt;Cruise: ACC1109 &lt;br&gt;Line: 4","Jar: 1418 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 2","Jar: 1419 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 2","Jar: 1420 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 2","Jar: 1421 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 4","Jar: 1422 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 4","Jar: 1423 &lt;br&gt;Cruise: ACC1206 &lt;br&gt;Line: 4","Jar: 1440 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 6","Jar: 1441 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 6","Jar: 1442 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 6","Jar: 1443 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 2","Jar: 1444 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 2","Jar: 1445 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 2","Jar: 1446 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 4","Jar: 1447 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 4","Jar: 1448 &lt;br&gt;Cruise: ACC1207 &lt;br&gt;Line: 4","Jar: 1587 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 6","Jar: 1588 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 6","Jar: 1589 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 6","Jar: 1590 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 4","Jar: 1591 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 4","Jar: 1592 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 2","Jar: 1593 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 2","Jar: 1594 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 2","Jar: 1595 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 4","Jar: 1596 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 4","Jar: 1597 &lt;br&gt;Cruise: ACC1209 &lt;br&gt;Line: 4","Jar: 1613 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 6","Jar: 1614 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 6","Jar: 1615 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 6","Jar: 1616 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 4","Jar: 1617 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 4","Jar: 1618 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 4","Jar: 1619 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 2","Jar: 1620 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 2","Jar: 1621 &lt;br&gt;Cruise: ACC1305 &lt;br&gt;Line: 2","Jar: 1637 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 6","Jar: 1638 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 6","Jar: 1639 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 6","Jar: 1640 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 4","Jar: 1641 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 4","Jar: 1642 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 4","Jar: 1643 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 2","Jar: 1644 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 2","Jar: 1645 &lt;br&gt;Cruise: ACC1307 &lt;br&gt;Line: 2","Jar: 1659 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 2","Jar: 1660 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 2","Jar: 1661 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 4","Jar: 1662 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 4","Jar: 1663 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 4","Jar: 1664 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 6","Jar: 1665 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 6","Jar: 1666 &lt;br&gt;Cruise: ACC1309 &lt;br&gt;Line: 6","Jar: 1688 &lt;br&gt;Cruise: ACC1406 &lt;br&gt;Line: 6","Jar: 1689 &lt;br&gt;Cruise: ACC1406 &lt;br&gt;Line: 6","Jar: 1690 &lt;br&gt;Cruise: ACC1406 &lt;br&gt;Line: 6","Jar: 1710 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 6","Jar: 1711 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 6","Jar: 1712 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 6","Jar: 1713 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 4","Jar: 1714 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 4","Jar: 1718 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 2","Jar: 1719 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 2","Jar: 1720 &lt;br&gt;Cruise: ACC1407 &lt;br&gt;Line: 2","Jar: 1745 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 6","Jar: 1746 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 6","Jar: 1747 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 4","Jar: 1749 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 4","Jar: 1750 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 2","Jar: 1751 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 2","Jar: 1752 &lt;br&gt;Cruise: ACC1409 &lt;br&gt;Line: 2","Jar: 1770 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 6","Jar: 1771 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 6","Jar: 1772 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 4","Jar: 1773 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 4","Jar: 1774 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 4","Jar: 1775 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 2","Jar: 1776 &lt;br&gt;Cruise: ACC1506 &lt;br&gt;Line: 2","Jar: 1801 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 6","Jar: 1802 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 6","Jar: 1803 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 6","Jar: 1804 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 4","Jar: 1805 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 4","Jar: 1806 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 4","Jar: 1807 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 2","Jar: 1808 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 2","Jar: 1809 &lt;br&gt;Cruise: ACC1507 &lt;br&gt;Line: 2","Jar: 1836 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 2","Jar: 1837 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 2","Jar: 1838 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 4","Jar: 1839 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 4","Jar: 1840 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 6","Jar: 1841 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 6","Jar: 1842 &lt;br&gt;Cruise: ACC1509 &lt;br&gt;Line: 6","Jar: 1877 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1878 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1879 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1880 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1881 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1882 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 6","Jar: 1883 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1884 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1885 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1886 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1887 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1888 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 4","Jar: 1889 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1890 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1891 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1895 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1896 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1897 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1898 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1899 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1900 &lt;br&gt;Cruise: ACC1605 &lt;br&gt;Line: 2","Jar: 1926 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 6","Jar: 1927 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 6","Jar: 1928 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 4","Jar: 1929 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 4","Jar: 1930 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 2","Jar: 1931 &lt;br&gt;Cruise: ACC1607 &lt;br&gt;Line: 2","Jar: 1948 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 6","Jar: 1949 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 6","Jar: 1950 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 6","Jar: 1951 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 4","Jar: 1952 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 4","Jar: 1953 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 4","Jar: 1954 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 2","Jar: 1955 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 2","Jar: 1956 &lt;br&gt;Cruise: ACC1609 &lt;br&gt;Line: 2","Jar: 1993 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 6","Jar: 1994 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 6","Jar: 1995 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 6","Jar: 1996 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 4","Jar: 1997 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 4","Jar: 1998 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 2","Jar: 1999 &lt;br&gt;Cruise: ACC1705 &lt;br&gt;Line: 2","Jar: 2020 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 6","Jar: 2021 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 6","Jar: 2022 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 6","Jar: 2023 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 4","Jar: 2024 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 4","Jar: 2025 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 4","Jar: 2026 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 2","Jar: 2027 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 2","Jar: 2028 &lt;br&gt;Cruise: ACC1707 &lt;br&gt;Line: 2","Jar: 2051 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 6","Jar: 2052 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 6","Jar: 2053 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 6","Jar: 2054 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 4","Jar: 2055 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 4","Jar: 2056 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 4","Jar: 2057 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 2","Jar: 2058 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 2","Jar: 2059 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 2","Jar: 2060 &lt;br&gt;Cruise: ACC1709 &lt;br&gt;Line: 2","Jar: 2080 &lt;br&gt;Cruise: ACC1805 &lt;br&gt;Line: 6","Jar: 2081 &lt;br&gt;Cruise: ACC1805 &lt;br&gt;Line: 6","Jar: 2082 &lt;br&gt;Cruise: ACC1805 &lt;br&gt;Line: 4","Jar: 2083 &lt;br&gt;Cruise: ACC1805 &lt;br&gt;Line: 4","Jar: 2084 &lt;br&gt;Cruise: ACC1805 &lt;br&gt;Line: 2","Jar: 2118 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2119 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2120 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2121 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2122 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2123 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2124 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2125 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2126 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2127 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2128 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 6","Jar: 2129 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2130 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2131 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2132 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2133 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2134 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2135 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2136 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2137 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2138 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2139 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2140 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 4","Jar: 2141 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 2","Jar: 2142 &lt;br&gt;Cruise: ACC1807 &lt;br&gt;Line: 2","Jar: 2232 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 6","Jar: 2233 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 6","Jar: 2234 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 6","Jar: 2235 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 2","Jar: 2236 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 2","Jar: 2237 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 2","Jar: 2243 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 4","Jar: 2244 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 4","Jar: 2245 &lt;br&gt;Cruise: ACC1809 &lt;br&gt;Line: 4","Jar: 2260 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 2","Jar: 2261 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 2","Jar: 2262 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 2","Jar: 2263 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2264 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2265 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2266 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 6","Jar: 2267 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 6","Jar: 2268 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 6","Jar: 2269 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2270 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2271 &lt;br&gt;Cruise: ACC1905 &lt;br&gt;Line: 4","Jar: 2292 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 4","Jar: 2293 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 4","Jar: 2294 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 4","Jar: 2295 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 2","Jar: 2296 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 2","Jar: 2297 &lt;br&gt;Cruise: ACC1907 &lt;br&gt;Line: 2","Jar: 2314 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 2","Jar: 2315 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 2","Jar: 2316 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 2","Jar: 2317 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 6","Jar: 2318 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 6","Jar: 2319 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 4","Jar: 2320 &lt;br&gt;Cruise: ACC1909 &lt;br&gt;Line: 4","Jar: 2342 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 6","Jar: 2343 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 6","Jar: 2344 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 6","Jar: 2345 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 4","Jar: 2346 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 4","Jar: 2347 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 4","Jar: 2348 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 2","Jar: 2349 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 2","Jar: 2350 &lt;br&gt;Cruise: ACC2106 &lt;br&gt;Line: 2","Jar: 2371 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 6","Jar: 2372 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 6","Jar: 2373 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 4","Jar: 2374 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 4","Jar: 2375 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 4","Jar: 2376 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 2","Jar: 2377 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 2","Jar: 2378 &lt;br&gt;Cruise: ACC2107 &lt;br&gt;Line: 2","Jar: 2401 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 2","Jar: 2403 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 6","Jar: 2404 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 6","Jar: 2405 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 6","Jar: 2406 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 4","Jar: 2407 &lt;br&gt;Cruise: ACC2109 &lt;br&gt;Line: 4"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addLegend","args":[{"colors":["#440154","#21908C","#FDE725"],"labels":["2","4","6"],"na_color":null,"na_label":"NA","opacity":1,"position":"bottomright","type":"factor","title":"Line","extra":null,"layerId":null,"className":"info legend","group":null}]}],"limits":{"lat":[37.70541666666666,38.102],"lng":[-123.5311666666667,-122.4827166666667]}},"evals":[],"jsHooks":[]}</script>
+</div>
+</div>
 </section>
 
 </main>
