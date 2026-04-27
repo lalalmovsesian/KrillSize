@@ -3,6 +3,8 @@ title: "Krill Size"
 subtitle: "Changes in krill size in CCE"
 author: Lala Movsesian
 format: html
+toc: true
+toc-depth: 3
 ---
 
 # Setup
@@ -18,18 +20,31 @@ library(lme4)
 library(lmerTest) 
 library(viridis)
 library(leaflet)
+library(broom.mixed)
+library(DT)
+library(mgcv)
+library(purrr)
+library(patchwork)
+library(ggeffects)
+library(gratia)
+
+
 
 raw_data <- read_excel(here("data", "raw", "krill_size.xlsx"))
 moci_data <- read.csv(here("data", "raw", "CaliforniaMOCI_long.csv"))
 loc_data <- read_excel(here("data","raw", "locdata.xlsx"))
+climate_raw <- read_excel(here("data","raw", "climate_ocean_indices.xlsx"))
+
 ```
 
-### Date
+# Creating main dataframe
+
+## Filtering data
 
 Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used "cruise" column as reference rather than "date", since some sampling is done early in the next month (e.g. sampling date is 7/1 but it's from june cruise)
 
 ```{r}
-data_date <- raw_data %>%
+data_all <- raw_data %>%
   mutate(base_date = make_date(
       year  = 2000 + as.numeric(substr(cruise, 4, 5)),
       month = as.numeric(substr(cruise, 6, 7)),
@@ -38,44 +53,21 @@ data_date <- raw_data %>%
 
 ```
 
-excluding cruises from feb (n=1), apr (n=2), and oct (n=3)
+Excluding cruises from feb (n=1), apr (n=2), and oct (n=3).Changing all imm m to m, and imm f to f for consistency, since some samples include rows labeled as m in lower than 11mm ranges, and filtering for desired life stages (excluding zoea). Only including numerically dominant species (excluding euphausiidae), adding species code names for convenience:
 
 ```{r}
-df <- data_date %>%
-  filter(!month(base_date) %in% c(2, 4, 10))
-```
-
-### Life Stage
-
-Changing all imm m to m, and imm f to f for consistency, since some samples include rows labeled as m in lower than 11mm ranges.
-
-```{r}
-df <- df %>%
+data_krill <- data_all %>%
+  filter(!month(base_date) %in% c(2, 4, 10)) %>%  
   mutate(
     type = case_when(
       type == "imm m" ~ "m",
       type == "imm f" ~ "f",
-      TRUE ~ type))
-```
-
-### Species
-
-Filtering data: only including species of interest, only including juv, f and m
-
-```{r}
-df <- df %>%
+      TRUE ~ type)) %>%
+  filter(type %in% c("juv", "f", "m")) %>%
   filter(species_name %in% c(
     "EUP Euphausia pacifica",
     "EUP Nematoscelis difficilis",
     "EUP Thysanoessa spinifera")) %>%
-  
-  filter(type %in% c("juv", "f", "m"))
-```
-
-Adding code names for convenience
-
-```{r}
-df <- df %>%
   mutate(
     species_code = case_when(
       species_name == "EUP Euphausia pacifica" ~ "EPAC",
@@ -85,12 +77,12 @@ df <- df %>%
 relocate(species_code, .after = species_name)
 ```
 
-## MOCI
+## Adding MOCI
 
 Joining seasonal MOCI from Northern California with df
 
 ```{r}
-df <- df %>%
+data_krill <- data_krill %>%
   mutate(
     Year = year(base_date),
     Month = month(base_date),
@@ -98,7 +90,7 @@ df <- df %>%
       Month %in% c(4, 5, 6) ~ "AMJ",
       Month %in% c(7, 8, 9) ~ "JAS"))
     
-df <- df %>%
+data_moci <- data_krill %>%
   left_join(
     moci_data %>%
       select(Year, Season, North.California..38.42N.),
@@ -109,104 +101,12 @@ df <- df %>%
   relocate(season, .after = base_date)
 ```
 
-
-
-
-
-# Analyses
-
-Testing interannual variability using Linear Mixed Models because:
-
--   nested data (no need to collapse data to means)
-
--   not independent data (avoiding pseudoreplication and inflated significance)
-
--   considering uneven sampling effort
-
--   more suitable for different months and different numbers of cruises in year
-
-In this model, year is used as fixed effect and cruise/jar as random factors, therefore testing if variability among years is larger than within-jar/cruise.
-
-downsides: Some years have more cruises/samples than others, which can influence the precision Years are not considered directional, and this model will not show overall trends. Considering that the main goal is to identify changes in response to climate anomalies, this is not a problem.
-
-## Uneven Sampling
-Some diagnostic and informative tables for decision making, set up with eval = false to not run every time
-
-checking number of cruises per months:
-
-```{r eval=FALSE}
-cruise_per_month <- data_date %>%
-    group_by(month = month(base_date)) %>%
-  summarise(n_cruises = n_distinct(base_date))
-```
-
-
-checking number of jars per cruise:
-
-```{r eval=FALSE}
-tot_jars_per_cruise <- data_date %>%
-  group_by(base_date) %>%
-  summarise(n_jars = n_distinct(jar))
-```
-
-
-checking number of jars per line per cruise
-
-```{r eval=FALSE}
-jars_per_line_per_cruise_not3 <- data_date %>%
-  group_by(base_date, line) %>%
-  summarise(n_jars = n_distinct(jar), .groups = "drop")
-```
-
-
-checking cruises with lines that have more or less than 3 samples:
-
-```{r eval=FALSE}
-jars_per_line_not3 <- data_date %>%
-  group_by(base_date, line) %>%
-  summarise(n_jars = n_distinct(jar), .groups = "drop") %>%
-  filter(n_jars != 3)
-```
-
-Checking number of lines per cruise, and identifying missing lines
-
-```{r eval=FALSE}
-missing_lines <- data_date %>%
-  group_by(base_date) %>%
-  summarise(
-    n_lines = n_distinct(line),
-    missing_lines = paste(setdiff(c("2", "4", "6"), unique(line)), collapse = ", "),
-    .groups = "drop")
-```
-
-
-checking stations of each line across the years, revealing multiple station per line, some N/A, some have ".", some "TT". conclusion: do not use station column as random factors
-
-```{r eval=FALSE}
-station_per_line <- df %>%
-  group_by(line, station) %>%
-  summarise(n_jars = n_distinct(jar), .groups = "drop") 
-```
-
-
-checking my counts:
-
-```{r eval=FALSE}
-jar_counts <- df %>%
-  group_by(species_code, jar) %>%
-  summarise(total_individuals = sum(tot_num, na.rm = TRUE), .groups = "drop") %>%
-  arrange(species_code, jar)
-```
-
-
-
-# Size Calculation
-
+## Size Calculation
 
 Adding columns for width and length midpoint for each size range in each type:
 
 ```{r}
-df <- df %>%
+df <- data_moci %>%
   mutate(length_mid = (length_l + length_h) / 2) %>%
   mutate(width_mid = (width_l + width_h) / 2) %>%
 relocate(length_mid, .after = length_h) %>%
@@ -223,16 +123,815 @@ df <- df %>%
 ```
 
 Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)
+
 ```{r}
 df_vol <- df %>%
-  group_by(species_code, jar, type, base_date, moci, line) %>%
+  group_by(species_code, jar, type, base_date, moci, line, cruise) %>%
   filter(!is.na(tot_num)) %>%
   summarise(volume_weighted = sum(volume * tot_num) / sum(tot_num),
     .groups = "drop")
 ```
 
+# Analysis - MOCI
 
-# Figures
+## Linear Mixed Effects Model
+
+creating function:
+
+```{r}
+prep_species <- function(df_vol, species_name) {
+  df_vol %>%
+    filter(species_code == species_name) %>%
+    mutate(
+      year = lubridate::year(base_date),
+      type = factor(type),
+      line = factor(line),
+      base_date = as.Date(base_date)) %>%
+    ungroup()}
+
+run_models <- function(df_vol) {
+  # Year model
+  model_year <- lmer(
+    volume_weighted ~ factor(year) + type +
+      (1 | base_date) + (1 | line),
+    data = df_vol)
+  
+  # MOCI model
+  model_moci <- lmer(
+    volume_weighted ~ moci + type +
+      (1 | base_date) + (1 | line),
+    data = df_vol)
+  
+  # MOCI + m/f/juv interaction
+  model_moci_type <- lmer(
+    volume_weighted ~ moci * type +
+      (1 | base_date) + (1 | line),
+    data = df_vol)
+  
+  return(list(
+    year = model_year,
+    moci = model_moci,
+    moci_type = model_moci_type))}
+```
+
+running it for all species:
+
+```{r}
+epac_models <- prep_species(df_vol, "EPAC") %>% run_models()
+
+tspin_models <- prep_species(df_vol, "TSPIN") %>% run_models()
+
+ndif_models <- prep_species(df_vol, "NDIF") %>% run_models()
+```
+
+generating tables:
+
+```{r}
+#creating function 
+extract_results <- function(models, species_name) {
+  broom.mixed::tidy(models$moci_type, effects = "fixed") %>%
+    mutate(species = species_name)}
+
+#running function for each species 
+epac_res  <- extract_results(epac_models, "EPAC")
+tspin_res <- extract_results(tspin_models, "TSPIN")
+ndif_res  <- extract_results(ndif_models, "NDIF")
+
+#combining all 3 tables vertically
+all_results <- bind_rows(epac_res, tspin_res, ndif_res)
+
+#keeping desired columns only
+clean_table <- all_results %>%
+  select(species, term, estimate, std.error, statistic, p.value) %>%
+  #rounding to 3 decimals, and keeping 3 significant digits for p value
+  mutate(
+    across(c(estimate, std.error, statistic), round, 3),
+    p.value = signif(p.value, 3)) %>%
+  mutate(term = recode(term,
+    "(Intercept)" = "Intercept",
+    "moci" = "MOCI",
+    "typejuv" = "Juvenile",
+    "typem" = "Male",
+    "moci:typejuv" = "MOCI × Juvenile",
+    "moci:typem" = "MOCI × Male"))
+
+#creating interactive table
+datatable(clean_table,
+          options = list(pageLength = 18),
+          rownames = FALSE)
+
+```
+
+Plot to show and compare slopes:
+
+```{r}
+ggplot(df_vol %>% filter(species_code %in% c("EPAC","NDIF","TSPIN")), 
+       aes(x = moci, y = volume_weighted, color = type)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(~species_code) +
+  theme_classic()
+```
+
+## Linear trends
+
+```{r}
+run_lme_trend <- function(df_vol) {
+
+  data_directional <- df_vol %>%
+    mutate(
+      year = lubridate::year(base_date),
+      year_scaled = scale(year, center = TRUE, scale = FALSE))
+
+  model <- lmer(
+    volume_weighted ~ year_scaled + moci + type + (1 | year),
+    data = data_directional)
+
+}
+```
+
+running models:
+
+```{r}
+epac_trend <- prep_species(df_vol, "EPAC") %>% run_lme_trend()
+
+tspin_trend <- prep_species(df_vol, "TSPIN") %>% run_lme_trend()
+
+ndif_trend <- prep_species(df_vol, "NDIF") %>% run_lme_trend()
+```
+
+showing results: FIX THIS PART
+
+```{r}
+print(epac_trend)
+print(tspin_trend)
+print(ndif_trend)
+```
+
+## GAM
+
+testing GAM:
+
+```{r}
+run_gam_trend <- function(df_vol) {
+
+  data_gam <- df_vol %>%
+    mutate(year = lubridate::year(base_date))
+
+  model <- gam(
+    volume_weighted ~ s(year, k = 10) + moci + type,
+    data = data_gam,
+    method = "REML")
+
+  return(model)}
+```
+
+```{r}
+model_epac_gam <- run_gam_trend(prep_species(df_vol, "EPAC"))
+summary(model_epac_gam)
+plot(model_epac_gam, shade = TRUE)
+
+model_tspin_gam <- run_gam_trend(prep_species(df_vol, "TSPIN"))
+summary(model_tspin_gam)
+plot(model_tspin_gam, shade = TRUE)
+
+model_ndif_gam <- run_gam_trend(prep_species(df_vol, "NDIF"))
+summary(model_ndif_gam)
+plot(model_ndif_gam, shade = TRUE)
+```
+
+### Poster figures
+
+#### 1. gerneral size bar chart:
+
+```{r}
+life_stage_summary <- df_vol %>%
+  group_by(species_code, type) %>%
+  summarise(
+    mean_size = mean(volume_weighted, na.rm = TRUE),
+    se = sd(volume_weighted, na.rm = TRUE) / sqrt(n()),
+    .groups = "drop"
+  )
+
+life_stage_summary <- life_stage_summary %>%
+  mutate(
+    species = recode(species_code,
+                     "EPAC" = "E. pacifica",
+                     "TSPIN" = "T. spinifera",
+                     "NDIF" = "N. difficilis"),
+    type = recode(type,
+                  "f" = "Female",
+                  "m" = "Male",
+                  "juv" = "Juvenile")
+  )
+
+life_stage_summary$type <- factor(
+  life_stage_summary$type,
+  levels = c("Juvenile", "Male", "Female")
+)
+
+
+ggplot(life_stage_summary,
+       aes(x = species, y = mean_size, fill = type)) +
+  
+  geom_col(position = position_dodge(width = 0.7),
+           width = 0.6) +
+  
+  geom_errorbar(aes(ymin = mean_size - se,
+                    ymax = mean_size + se),
+                position = position_dodge(width = 0.7),
+                width = 0.2) +
+  
+  scale_fill_viridis_d(option = "D", end = 0.8) +
+  
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 5)  # ~2–3 gridlines instead of 10
+  ) +
+  
+  labs(
+    x = "Species",
+    y = "Mean body volume (mm³)",
+    fill = "Life stage",
+    title = "Body size differences across species and life stages"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),  # remove tiny gridlines
+    panel.grid.major = element_line(linewidth = 0.4),
+    axis.text.x = element_text(face = "italic")
+  )
+```
+
+
+#### 2. species relative abundance pie chart
+```{r}
+
+species_sum <- df %>%
+  group_by(species_code) %>%
+  summarise(total_n = sum(tot_num, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    perc = total_n / sum(total_n) * 100,
+    label = paste0(round(perc, 1), "%")
+  )
+
+species_sum$species_code <- factor(
+  species_sum$species_code,
+  levels = c("EPAC", "TSPIN", "NDIF")
+)
+
+ggplot(species_sum, aes(x = "", y = total_n, fill = species_code)) +
+  
+  geom_col(width = 1, color = "white") +
+  
+  coord_polar(theta = "y") +
+  
+  scale_fill_viridis_d(option = "D", end = 0.85) +
+  
+  
+  labs(
+    fill = "Species",
+    title = "Species composition of krill samples"
+  ) +
+  
+  theme_void() +
+  
+  theme(plot.title = element_text(face = "bold"))
+```
+
+
+
+
+
+
+#### 4. standardized effects plot (with gam)
+
+```{r}
+# EPAC
+epac_eff <- ggpredict(model_epac_gam, terms = "moci")
+
+# NDIF
+ndif_eff <- ggpredict(model_ndif_gam, terms = "moci")
+
+# tspin
+tspin_eff <- ggpredict(model_tspin_gam, terms = "moci")
+
+epac_eff$species <- "E. pacifica"
+ndif_eff$species <- "N. difficilis"
+tspin_eff$species <- "T. spinifera"
+
+eff_all <- bind_rows(epac_eff, ndif_eff, tspin_eff)
+
+
+eff_all2 <- eff_all %>%
+  group_by(species) %>%
+  mutate(
+    predicted_centered = predicted - predicted[which.min(abs(x - mean(x)))],
+    conf.low_centered = conf.low - predicted[which.min(abs(x - mean(x)))],
+    conf.high_centered = conf.high - predicted[which.min(abs(x - mean(x)))]
+  ) %>%
+  ungroup()
+
+
+ggplot(eff_all2,
+       aes(y = predicted_centered, x = x, color = species)) +
+  
+  # main lines
+  geom_line(linewidth = 1.4) +
+  
+  # subtle endpoints (start + end of each curve)
+  geom_point(
+    data = eff_all2 %>%
+      group_by(species) %>%
+      slice(c(1, n())) %>%
+      ungroup(),
+    aes(y = predicted_centered, x = x, color = species),
+    size = 2,
+    alpha = 0.6
+  ) +
+  
+  # reference line (no climate effect baseline)
+  geom_hline(yintercept = mean(eff_all2$x), 
+             linetype = "dashed", alpha = 0.4) +
+
+  
+  scale_color_viridis_d(option = "D", end = 0.85) +
+  
+  labs(
+    y = "Deviation in predicted body size",
+    x = "MOCI (climate conditions)",
+    title = "Species-specific responses of krill body size to climate variability"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+
+
+
+#### 5. linear vs ninlinear
+
+```{r}
+
+
+# Extract smooths for each species
+
+
+epac_smooth <- smooth_estimates(model_epac_gam, smooth = "s(year)") %>%
+  mutate(species = "E. pacifica")
+
+ndif_smooth <- smooth_estimates(model_ndif_gam, smooth = "s(year)") %>%
+  mutate(species = "N. difficilis")
+
+tspin_smooth <- smooth_estimates(model_tspin_gam, smooth = "s(year)") %>%
+  mutate(species = "T. spinifera")
+
+
+# Combine + add CI
+
+
+smooth_all <- bind_rows(epac_smooth, ndif_smooth, tspin_smooth) %>%
+  mutate(
+    .lower = .estimate - 1.96 * .se,
+    .upper = .estimate + 1.96 * .se
+  )
+
+# order species (important for visual story)
+smooth_all$species <- factor(
+  smooth_all$species,
+  levels = c("N. difficilis", "E. pacifica", "T. spinifera")
+)
+
+
+# Plot
+
+
+ggplot(smooth_all, aes(x = year, y = .estimate)) +
+  
+  # confidence ribbon
+  geom_ribbon(aes(ymin = .lower, ymax = .upper),
+              fill = "grey70",
+              alpha = 0.4) +
+  
+  # smooth line
+  geom_line(linewidth = 1.2, color = "black") +
+  
+  # zero reference
+  geom_hline(yintercept = 0,
+             linetype = "dashed",
+             alpha = 0.5) +
+  
+  # facet by species
+  facet_wrap(~ species, ncol = 1, scales = "fixed") +
+  
+  labs(
+    x = "Year",
+    y = "Effect on body size (relative)",
+    title = "Temporal patterns in krill body size"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  
+  theme(
+    strip.text = element_text(face = "italic", size = 13),
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+#### 6. main effects
+```{r}
+effect_df <- bind_rows(
+  
+  tidy(ndif_trend, effects = "fixed") %>%
+    filter(term == "moci") %>%
+    mutate(species = "N. difficilis"),
+  
+  tidy(epac_trend, effects = "fixed") %>%
+    filter(term == "moci") %>%
+    mutate(species = "E. pacifica"),
+  
+  tidy(tspin_trend, effects = "fixed") %>%
+    filter(term == "moci") %>%
+    mutate(species = "T. spinifera")
+) %>%
+  select(species, estimate, std.error) %>%
+  rename(se = std.error)
+
+
+effect_df$species <- factor(effect_df$species,
+                            levels = c("N. difficilis",
+                                       "E. pacifica",
+                                       "T. spinifera"))
+
+ggplot(effect_df, aes(x = species, y = estimate, fill = species)) +
+  
+  geom_col(width = 0.6, alpha = 0.9) +
+  
+  geom_errorbar(
+    aes(ymin = estimate - se, ymax = estimate + se),
+    width = 0.15,
+    linewidth = 0.9
+  ) +
+  
+  # zero reference line = "no effect"
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.8, alpha = 0.6) +
+  
+  scale_fill_viridis_d(option = "D", end = 0.85) + 
+  
+  labs(
+    x = "",
+    y = "Effect of MOCI on body size",
+    title = "Species-specific sensitivity to climate variability"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+```
+
+#### anomalies
+
+```{r}
+prep_anomaly_data <- function(df, species_name) {
+  
+  df %>%
+    filter(species_code == species_name) %>%
+    mutate(year = year(base_date)) %>%
+    
+    group_by(year) %>%
+    summarise(
+      size_mean = mean(volume_weighted, na.rm = TRUE),
+      moci_mean = mean(moci, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    
+    mutate(
+      size_anomaly = size_mean - mean(size_mean, na.rm = TRUE),
+      moci_anomaly = moci_mean - mean(moci_mean, na.rm = TRUE)
+    )
+}
+```
+
+```{r}
+epac_anom <- prep_anomaly_data(df_vol, "EPAC")
+```
+
+plotting bars:
+
+```{r}
+ggplot(epac_anom, aes(x = factor(year))) +
+  
+  # size anomaly (flip sign so it mirrors MOCI)
+  geom_col(aes(y = -size_anomaly), fill = "steelblue", alpha = 0.8) +
+  
+  # MOCI anomaly
+  geom_col(aes(y = moci_anomaly), fill = "firebrick", alpha = 0.6) +
+  
+  geom_hline(yintercept = 0, color = "black") +
+  
+  labs(
+    x = "Year",
+    y = "Anomaly (centered)",
+    title = expression(italic("E. pacifica") ~ "size vs climate anomalies"),
+    caption = "Blue = size anomaly (inverted); Red = MOCI anomaly"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  )
+```
+
+another look:
+
+```{r}
+ggplot(epac_anom, aes(x = year)) +
+  
+  geom_col(aes(y = size_anomaly), fill = "steelblue", alpha = 0.7) +
+  
+  geom_line(aes(y = moci_anomaly), linewidth = 1.2) +
+  geom_point(aes(y = moci_anomaly), size = 2) +
+  
+  geom_hline(yintercept = 0) +
+  
+  theme_minimal()
+```
+
+```{r}
+ndif_anom <- prep_anomaly_data(df_vol, "NDIF")
+```
+
+plotting bars:
+
+```{r}
+ggplot(ndif_anom, aes(x = factor(year))) +
+  
+  # size anomaly (flip sign so it mirrors MOCI)
+  geom_col(aes(y = -size_anomaly), fill = "steelblue", alpha = 0.8) +
+  
+  # MOCI anomaly
+  geom_col(aes(y = moci_anomaly), fill = "firebrick", alpha = 0.6) +
+  
+  geom_hline(yintercept = 0, color = "black") +
+  
+  labs(
+    x = "Year",
+    y = "Anomaly (centered)",
+    title = expression(italic("N. difficilis") ~ "size vs climate anomalies"),
+    caption = "Blue = size anomaly (inverted); Red = MOCI anomaly"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  )
+```
+
+
+
+```{r}
+tspin_anom <- prep_anomaly_data(df_vol, "TSPIN")
+```
+
+plotting bars:
+
+```{r}
+ggplot(tspin_anom, aes(x = factor(year))) +
+  
+  # size anomaly (flip sign so it mirrors MOCI)
+  geom_col(aes(y = -size_anomaly), fill = "steelblue", alpha = 0.8) +
+  
+  # MOCI anomaly
+  geom_col(aes(y = moci_anomaly), fill = "firebrick", alpha = 0.6) +
+  
+  geom_hline(yintercept = 0, color = "black") +
+  
+  labs(
+    x = "Year",
+    y = "Anomaly (centered)",
+    title = expression(italic("T. spinifera") ~ "size vs climate anomalies"),
+    caption = "Blue = size anomaly (inverted); Red = MOCI anomaly"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  )
+```
+
+
+
+
+
+
+# Analysis - other indices
+
+organizing the data: cleaning up the names, changing all cruise names to ACC format
+
+```{r}
+climate <- climate_raw %>%
+  filter(!is.na(cruise)) %>%
+  rename_with(~ str_replace(., "-(\\d+)", "_lag\\1")) %>%
+    mutate(cruise = case_when(
+    cruise == "ACM1705" ~ "ACC1705", 
+    cruise == "ACD1807" ~ "ACC1807",
+    cruise == "ACM2205" ~ "ACC2205", 
+    cruise == "ACD2206" ~ "ACC2206",
+    
+    TRUE ~ cruise))
+```
+
+adding lags in a separate column
+
+```{r}
+df_climate <- climate %>% 
+  select(cruise, SOI, SOI_lag1, SOI_lag2, SOI_lag3, PDO, PDO_lag1, PDO_lag2, PDO_lag3, NPGO, NPGO_lag1, NPGO_lag2, NPGO_lag3, CUTI, CUTI_lag1, CUTI_lag2, CUTI_lag3, BEUTI, BEUTI_lag1, BEUTI_lag2, BEUTI_lag3, UI, UI_lag1, UI_lag2, UI_lag3, SEFI_SST_mean, SEFI_SST_anomalies, SEFI_SST_mean_lag1, SEFI_SST_anomalies_lag1, SEFI_SST_mean_lag2, SEFI_SST_anomalies_lag2, SEFI_SST_mean_lag3, SEFI_SST_anomalies_lag3)  %>%
+  pivot_longer(
+    cols = -cruise,
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  mutate(
+    index = str_extract(variable, "^[^_]+"),     # PDO, SOI, etc.
+    lag = str_extract(variable, "(?<=lag)\\d+")  # 1, 2, 3
+  ) %>%
+  mutate(
+    lag = ifelse(is.na(lag), 0, as.numeric(lag))
+  ) %>%
+
+  mutate(index = case_when(
+    index == "SEFI" ~ "SST", TRUE ~ index))
+
+```
+
+model prep:
+
+```{r}
+df_indices <- df_vol %>%
+  left_join(df_climate, by = "cruise")
+```
+
+model core function:
+
+```{r}
+run_model_species <- function(data, species_name, index_name, lag_value) {
+  
+  df_sub <- data %>%
+    filter(
+      species_code == species_name,
+      index == index_name,
+      lag == lag_value
+    ) %>%
+    filter(!is.na(value), !is.na(volume_weighted))
+  
+  # guards
+  if (nrow(df_sub) < 5) return(NULL)
+  if (n_distinct(df_sub$type) < 2) return(NULL)
+  
+  model <- tryCatch(
+    lmer(
+      volume_weighted ~ value * type +
+        (1 | jar),
+      data = df_sub
+    ),
+    error = function(e) return(NULL)
+  )
+  
+  return(model)
+}
+```
+
+running models
+
+```{r}
+species_list <- unique(df_indices$species_code)
+indices <- unique(df_indices$index)
+lags <- unique(df_indices$lag)
+```
+
+```{r}
+species_results <- expand_grid(
+  species = species_list,
+  index = indices,
+  lag = lags
+) %>%
+  mutate(
+    model = pmap(
+      list(species, index, lag),
+      ~run_model_species(df_indices, ..1, ..2, ..3)
+    )
+  ) %>%
+  filter(!map_lgl(model, is.null)) %>%
+  mutate(
+    tidy = map(model, ~broom.mixed::tidy(.x, effects = "fixed"))
+  ) %>%
+  select(-model) %>%
+  unnest(tidy)
+```
+
+making a clean table for climate results:
+
+```{r}
+clean_species_table <- species_results %>%
+  select(species, index, lag, term, estimate, std.error, statistic, p.value) %>%
+  mutate(
+    across(c(estimate, std.error, statistic), round, 3),
+    p.value = signif(p.value, 3)
+  ) %>%
+  mutate(term = recode(term,
+    "(Intercept)" = "Intercept",
+    "value" = "Climate Index",
+    "typejuv" = "Juvenile",
+    "typem" = "Male",
+    "value:typejuv" = "Climate × Juvenile",
+    "value:typem" = "Climate × Male"
+  ))
+```
+
+```{r}
+
+datatable(
+  clean_species_table,
+  options = list(pageLength = 20),
+  rownames = FALSE
+)
+```
+
+```{r}
+clean_species_table %>%
+  filter(term == "Climate Index") %>%
+  group_by(species, index) %>%
+  summarise(mean_effect = mean(abs(estimate)), .groups = "drop") %>%
+  arrange(desc(mean_effect))
+```
+
+three pannel figure:
+
+```{r eval=FALSE}
+top_indices <- importance_table %>%
+  slice_head(n = 3) %>%
+  pull(index)
+```
+
+pannel A:
+
+```{r eval=FALSE}
+p1 <- clim_main %>%
+  filter(index %in% top_indices) %>%
+  ggplot(aes(x = lag, y = estimate, color = index, group = index)) +
+  geom_line(linewidth = 1) +
+  geom_point() +
+  theme_classic() +
+  labs(title = "A. Climate effect across lags",
+       y = "Effect size", x = "Lag")
+```
+
+```{r eval=FALSE}
+p2 <- clim_main %>%
+  filter(index %in% top_indices) %>%
+  ggplot(aes(x = lag, y = index, fill = estimate)) +
+  geom_tile() +
+  scale_fill_gradient2() +
+  theme_classic() +
+  labs(title = "B. Index × lag response heatmap",
+       x = "Lag", y = "Index")
+```
+
+```{r eval=FALSE}
+p3 <- importance_table %>%
+  filter(index %in% top_indices) %>%
+  ggplot(aes(x = reorder(index, mean_effect), y = mean_effect)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  labs(title = "C. Climate driver importance",
+       x = "Index", y = "Mean |effect|")
+```
+
+```{r eval=FALSE}
+(p1 | p2) / p3
+```
+
+# Visualization
 
 Creating a plot function for all species' adults:
 
@@ -302,8 +1001,8 @@ labs(
 }
 ```
 
-
 Creating a plot function for all species' juveniles:
+
 ```{r}
 
 plot_juv <- function(data, species_name = "juvenile") {
@@ -385,17 +1084,16 @@ epac_juv <- epac_df %>%
 ```
 
 Creating plot for EPAC adult:
+
 ```{r}
 plot_adult(epac_adult)
 ```
 
-
 Creating plot for EPAC juveniles:
+
 ```{r}
 plot_juv(epac_juv)
 ```
-
-
 
 ## Thysanoessa spinifera
 
@@ -416,13 +1114,12 @@ tspin_juv <- tspin_df %>%
   filter(type == "juv")
 ```
 
-
 ```{r}
 plot_adult(tspin_adult)
 ```
 
-
 Creating plot for EPAC juveniles:
+
 ```{r}
 plot_juv(tspin_juv)
 ```
@@ -446,26 +1143,19 @@ ndif_juv <- ndif_df %>%
   filter(type == "juv")
 ```
 
-
 ```{r}
 plot_adult(ndif_adult)
 ```
 
+Creating plot for NDIF juveniles:
 
-
-Creating plot for EPAC juveniles:
 ```{r}
 plot_juv(ndif_juv)
 ```
 
+## comparing species
 
-
-# comparing species
-
-creating the df
-
-
-plotting m
+plot for males:
 
 ```{r}
 plot_adultm_species_compare <- function(data, sex_filter = "m", title_label = "Adults") {
@@ -538,13 +1228,11 @@ plot_adultm_species_compare <- function(data, sex_filter = "m", title_label = "A
 }
 ```
 
-
 ```{r}
 plot_adultm_species_compare(df_vol)
 ```
 
-
-plotting f
+plot for females:
 
 ```{r}
 plot_adultf_species_compare <- function(data, sex_filter = "f", title_label = "Adults") {
@@ -617,14 +1305,29 @@ plot_adultf_species_compare <- function(data, sex_filter = "f", title_label = "A
 }
 ```
 
-
-
 ```{r}
 plot_adultf_species_compare(df_vol)
 ```
 
+scatter plot?
 
-# Maps
+```{r}
+ggplot(ndif_df, aes(x = moci, y = volume_weighted, color = type)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_viridis_d() +
+  labs(
+    x = "MOCI",
+    y = "Weighted mean body volume (mm3)",
+    color = "Type",
+    title = "NDIF"
+  ) +
+  theme_minimal()
+```
+
+# Map
+
+This part needs a lot of troubleshooting and editing: - location data is not complete (only 2005 to 2021, 3 years are missing) - Map needs bathymetry layer and fixed transect lines - Problem points/jars: line 2: 2141, 2142, line 4: 2131, 2134, 2137, 2140
 
 ```{r}
 df_map <- df %>%
@@ -634,9 +1337,8 @@ df_map <- df %>%
     by = c("jar" = "ID_Jar"))
 ```
 
-
-
 making a clean df:
+
 ```{r}
 df_map_clean <- df_map %>%
   select(jar, cruise, Lat_IN, Lon_IN, base_date, line, station) %>%
@@ -644,11 +1346,7 @@ df_map_clean <- df_map %>%
   filter(!is.na(Lat_IN), !is.na(Lon_IN))
 ```
 
-
-creating a map: ADD BATHYMETRY LAYER, ADD FIXED TRANSECT LINES
-CHECK:
-line 2: 2141, 2142, 
-line 4: 2131, 2134, 2137, 2140
+creating a map: (add fixed station points, check points that show land coordinates)
 
 ```{r}
 
@@ -673,136 +1371,3 @@ leaflet(df_map_clean) %>%
     opacity = 1
   )
 ```
-
-# model with functions:
-
-creating df function
-```{r}
-prep_species <- function(df_vol, species_name) {
-  df_vol %>%
-    filter(species_code == species_name) %>%
-    mutate(
-      year = lubridate::year(base_date),
-      type = factor(type),
-      line = factor(line),
-      base_date = as.Date(base_date)
-    ) %>%
-    ungroup()
-}
-
-
-```
-
-model function
-
-```{r}
-run_models <- function(df_vol) {
-
-  # Year model
-  model_year <- lmer(
-    volume_weighted ~ factor(year) + type +
-      (1 | base_date) + (1 | line),
-    data = df_vol
-  )
-  
-  # MOCI model
-  model_moci <- lmer(
-    volume_weighted ~ moci + type +
-      (1 | base_date) + (1 | line),
-    data = df_vol
-  )
-  
-  # MOCI + type interaction
-  model_moci_type <- lmer(
-    volume_weighted ~ moci * type +
-      (1 | base_date) + (1 | line),
-    data = df_vol
-  )
-  
-  return(list(
-    year = model_year,
-    moci = model_moci,
-    moci_type = model_moci_type
-  ))
-}
-```
-
-
-summerizing models:
-
-```{r}
-summarize_models <- function(models, species_name) {
-  
-  cat("\n==============================\n")
-  cat("Species:", species_name, "\n")
-  cat("==============================\n")
-  
-  cat("\n--- YEAR EFFECT ---\n")
-  print(anova(models$year))
-  
-  cat("\n--- MOCI EFFECT ---\n")
-  print(summary(models$moci)$coefficients)
-  
-  cat("\n--- MOCI * TYPE ---\n")
-  print(summary(models$moci_type)$coefficients)
-}
-```
-
-
-running it for all species:
-
-```{r}
-epac_models <- prep_species(df_vol, "EPAC") %>% run_models()
-summarize_models(epac_models, "EPAC")
-
-tspin_models <- prep_species(df_vol, "TSPIN") %>% run_models()
-summarize_models(tspin_models, "TSPIN")
-
-ndif_models <- prep_species(df_vol, "NDIF") %>% run_models()
-summarize_models(ndif_models, "NDIF")
-
-```
-
-
-
-
-# model
-
-Running a linear mixed effects model for each species:
-
-```{r}
-epac_lme <- df_vol %>% filter(species_code == "EPAC") %>%
-  mutate(year = year(base_date))
-
-model_year <- lmer(volume_weighted ~ factor(year) + type + (1 | base_date) + (1 | line), data = epac_lme)
-
-anova(model_year)
-```
-now testing moci:
-
-```{r}
-model_moci <- lmer(volume_weighted ~ moci + type +
-                   (1 | base_date) + (1 | line),
-                   data = epac_lme)
-
-summary(model_moci)
-```
-
-moci inndividually in each type:
-
-```{r}
-model_moci_type <- lmer(volume_weighted ~ moci * type +
-                        (1 | base_date) + (1 | line),
-                        data = epac_lme)
-
-summary(model_moci_type)
-```
-quick cheeky plot:
-
-```{r}
-ggplot(epac_lme, aes(x = moci, y = volume_weighted, color = type)) +
-  geom_point(alpha = 0.25) +
-  geom_smooth(method = "lm", se = TRUE) +
-  theme_classic()
-```
-

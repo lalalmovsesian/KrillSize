@@ -1,0 +1,964 @@
+---
+title: "redo"
+format: html
+---
+
+
+# Setup
+
+loading packages:
+
+```{r}
+library(here)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(viridis)
+library(leaflet)
+library(broom.mixed)
+library(DT)
+library(mgcv)
+library(purrr)
+library(patchwork)
+library(ggeffects)
+library(gratia)
+library(janitor)
+```
+
+
+loading data:
+
+```{r}
+raw_data <- read_excel(here("data", "raw", "krill_size.xlsx"))
+raw_data_2025 <- read_excel(here("data", "raw", "2025_krill_size.xlsx"))
+moci_data <- read.csv(here("data", "raw", "CaliforniaMOCI_long.csv"))
+loc_data <- read_excel(here("data","raw", "locdata.xlsx"))
+climate_raw <- read_excel(here("data","raw", "climate_ocean_indices.xlsx"))
+tow_data <- read_excel(here("data","raw", "tow_data.xlsx"))
+
+```
+
+# Creating main dataframe
+
+## Filtering data
+
+Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used "cruise" column as reference rather than "date", since some sampling is done early in the next month (e.g. sampling date is 7/1 but it's from june cruise)
+
+cleaning up 2025 data:
+
+```{r}
+data_2025 <-
+clean_names(raw_data_2025) %>%
+  rename(jar = id_jar)
+
+  data_2025$line <- as.character(data_2025$line)
+```
+
+
+adding 2025 data:
+
+```{r}
+data_all <- bind_rows (raw_data, data_2025) %>%
+  mutate(base_date = make_date(
+      year  = 2000 + as.numeric(substr(cruise, 4, 5)),
+      month = as.numeric(substr(cruise, 6, 7)),
+      day   = 1))%>% 
+  relocate(base_date, .after = date)
+```  
+
+adding time and location data:
+
+```{r}
+tow_data <- clean_names(tow_data) %>%
+  rename(jar = id_jar)
+
+data_all <- data_all %>%
+  left_join(
+    tow_data %>% select(lat_in, lon_in, jar, time_in, depth_mean), by = "jar")%>%
+  mutate(time_in = hms::as_hms(time_in))
+```
+
+adding D/N for times
+
+```{r}
+data_all <- data_all %>%
+  mutate(hour = hour(time_in),
+  diel = case_when(
+      hour >= 6 & hour < 18 ~ "day",
+      TRUE ~ "night"))
+```
+
+
+adding MOCI
+
+```{r}
+data_all <- data_all %>%
+  mutate(
+    Year = year(base_date),
+    Month = month(base_date),
+    Season = case_when(
+      Month %in% c(1, 2, 3) ~ "JFM",
+      Month %in% c(4, 5, 6) ~ "AMJ",
+      Month %in% c(7, 8, 9) ~ "JAS",
+      Month %in% c(10, 11, 12) ~ "OND")) %>%
+  left_join(
+    moci_data %>%
+      select(Year, Season, North.California..38.42N.),
+    by = c("Year", "Season")) %>%
+  rename(moci = North.California..38.42N., season = Season, year = Year, month = Month) %>%
+  relocate(season, .after = base_date)
+```
+  
+
+
+Excluding cruises from feb (n=1), apr (n=2), and oct (n=3).Changing all imm m to m, and imm f to f for consistency, since some samples include rows labeled as m in lower than 11mm ranges, and filtering for desired life stages (excluding zoea). Only including numerically dominant species (excluding euphausiidae), adding species code names for convenience:
+
+```{r}
+data_krill <- data_all %>%
+  filter(! month %in% c(2, 4, 10)) %>%
+  mutate(
+    type = case_when(
+      type == "imm m" ~ "m",
+      type == "imm f" ~ "f",
+      TRUE ~ type)) %>%
+  filter(type %in% c("juv", "f", "m")) %>%
+  filter(species_name %in% c(
+    "EUP Euphausia pacifica",
+    "EUP Nematoscelis difficilis",
+    "EUP Thysanoessa spinifera")) %>%
+  mutate(
+    species_code = case_when(
+      species_name == "EUP Euphausia pacifica" ~ "EPAC",
+      species_name == "EUP Thysanoessa spinifera" ~ "TSPIN",
+      species_name == "EUP Nematoscelis difficilis" ~ "NDIF")) 
+```
+
+
+creating separate datasets for day and night:
+
+```{r}
+data_day <- data_krill %>%
+  filter(diel == "day")
+
+data_night <- data_krill %>%
+  filter(diel == "night")
+```
+
+## Size Calculation
+
+Adding columns for width and length midpoint for each size range in each type:
+
+```{r}
+df <- data_day%>%
+  mutate(length_mid = (length_l + length_h) / 2) %>%
+  mutate(width_mid = (width_l + width_h) / 2) %>%
+relocate(length_mid, .after = length_h) %>%
+  relocate(width_mid, .after = width_h)
+```
+
+Calculating volume per each row by considering krill cone-shaped, using width_mid as diameter and length_mid as height:
+
+```{r}
+df <- df %>%
+  mutate(volume = (1/3) * pi * (width_mid / 2)^2 * length_mid) %>%
+  relocate(volume, .after = width_mid) %>%
+  filter(!is.na(volume)) 
+```
+
+Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)
+
+```{r}
+df_vol <- df %>%
+  group_by(species_code, jar, type, base_date, moci, line, cruise, year, season, month, depth_mean) %>%
+  filter(!is.na(tot_num)) %>%
+  summarise(n = sum(tot_num), volume_weighted = sum(volume * tot_num) / n,
+    .groups = "drop")
+```
+
+
+# Analysis with MOCI
+
+### Subsets
+
+creating subsets to run gamm
+```{r}
+juv_epac <- df_vol %>% filter(species_code == "EPAC", type == "juv")
+juv_ndif <- df_vol %>% filter(species_code == "NDIF", type == "juv")
+juv_tspin <- df_vol %>% filter(species_code == "TSPIN", type == "juv")
+
+adult_epac <- df_vol %>% filter(species_code == "EPAC", type %in% c("f", "m"))
+adult_ndif <- df_vol %>% filter(species_code == "NDIF", type %in% c("f", "m"))
+adult_tspin <- df_vol %>% filter(species_code == "TSPIN", type %in% c("f", "m"))
+```
+
+
+### visualizing
+plotting to see relationship with MOCI and influence of n
+
+juves:
+
+```{r}
+ggplot(df_vol %>% filter(type == "juv"),
+       aes(x = moci, y = volume_weighted)) +
+  geom_point(aes(size = n), alpha = 0.4) +
+  geom_smooth(method = "loess", se = TRUE) +
+  scale_size_continuous(name = "N", range = c(1, 6)) +
+  facet_wrap(~ species_code) +
+  theme_minimal()
+```
+
+
+adults:
+```{r}
+ggplot(df_vol %>% filter(type %in% c("f", "m")),
+       aes(x = moci, y = volume_weighted, color = type)) +
+  geom_point(aes(size = n), alpha = 0.5) +
+  geom_smooth(method = "loess", se = TRUE) +
+  scale_size_continuous(name = "N") +
+  scale_size_continuous(name = "N", range = c(1, 6)) +
+  facet_wrap(~ species_code) +
+  theme_minimal()
+```
+
+
+
+
+### checking skewedness
+
+juves:
+```{r}
+ggplot(df_vol %>% filter(type == "juv"),
+       aes(x = volume_weighted)) +
+  geom_histogram(bins = 30) +
+  facet_wrap(~ species_code) +
+  theme_minimal()
+```
+
+adults:
+
+```{r}
+ggplot(df_vol %>% filter(type %in% c("f", "m")),
+       aes(x = volume_weighted, fill = type)) +
+  geom_histogram(bins = 30, alpha = 0.5, position = "identity") +
+  facet_wrap(~ species_code) +
+  theme_minimal()
+```
+
+
+calculating skew:
+
+```{r}
+library(matrixStats)
+
+weighted_skew <- function(x, w) {
+  m <- weighted.mean(x, w)
+  s <- sqrt(weighted.mean((x - m)^2, w))
+  weighted.mean(((x - m)/s)^3, w)
+}
+```
+
+juves:
+
+```{r}
+df_vol %>%
+  filter(type == "juv") %>%
+  group_by(species_code) %>%
+  summarise(
+    skew = weighted_skew(volume_weighted, n)
+  )
+```
+
+adults:
+```{r}
+df_vol %>%
+  filter(type == "f") %>%
+  group_by(species_code) %>%
+  summarise(
+    skew = weighted_skew(volume_weighted, n)
+  )
+
+df_vol %>%
+  filter(type == "m") %>%
+  group_by(species_code) %>%
+  summarise(
+    skew = weighted_skew(volume_weighted, n)
+  )
+```
+
+
+
+
+### juveniles
+
+for juves (no type), removing jar as random factor bc it gave insane overfit
+
+```{r}
+run_gamm_juvenile <- function(df_sub) {
+  
+  # clean and prepare data
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      n > 0,
+      !is.na(cruise),
+      !is.na(year)
+    ) %>%
+    mutate(
+      cruise = factor(cruise),
+      year = factor(year),
+      response = log(volume_weighted + 1)
+    )
+  
+  # fit model
+  model <- gam(
+    response ~
+      s(moci, k = 5) +
+      s(cruise, bs = "re") +
+      s(year, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+
+```{r}
+m_juv_epac  <- run_gamm_juvenile(juv_epac)
+m_juv_ndif  <- run_gamm_juvenile(juv_ndif)
+m_juv_tspin <- run_gamm_juvenile(juv_tspin)
+```
+
+```{r}
+summary(m_juv_epac)
+summary(m_juv_tspin)
+summary(m_juv_ndif)
+```
+
+diagnostics:
+
+```{r}
+gam.check(m_juv_epac)
+```
+
+```{r}
+gam.check(m_juv_ndif)
+
+```
+
+```{r}
+gam.check(m_juv_tspin)
+```
+
+
+secondary model, accounting for line:
+
+```{r}
+run_gamm_2juvenile <- function(df_sub) {
+  
+  # clean and prepare data
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      !is.na(line),
+      n > 0,
+      !is.na(cruise),
+      !is.na(year)
+    ) %>%
+    mutate(
+      cruise = factor(cruise),
+      year = factor(year),
+      line = factor(line),
+      response = log(volume_weighted + 1)
+    )
+  
+  # fit model
+  model <- gam(
+    response ~
+      s(moci, k = 5) +
+      s(line, bs = "re") +
+      s(year, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+
+```{r}
+m_juv_2epac  <- run_gamm_2juvenile(juv_epac)
+m_juv_2ndif  <- run_gamm_2juvenile(juv_ndif)
+m_juv_2tspin <- run_gamm_2juvenile(juv_tspin)
+```
+
+```{r}
+summary(m_juv_2epac)
+summary(m_juv_2tspin)
+summary(m_juv_2ndif)
+```
+
+diagnostics:
+
+```{r}
+gam.check(m_juv_2epac)
+```
+
+```{r}
+gam.check(m_juv_2ndif)
+
+```
+
+```{r}
+gam.check(m_juv_2tspin)
+```
+running a third mode, adding only line and moci, k=6
+
+```{r}
+run_gamm_3juvenile <- function(df_sub) {
+  
+  # clean and prepare data
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      !is.na(line),
+      n > 0,
+      !is.na(cruise),
+      !is.na(year)
+    ) %>%
+    mutate(
+      cruise = factor(cruise),
+      year = factor(year),
+      line = factor(line),
+      response = log(volume_weighted + 1)
+    )
+  
+  # fit model
+  model <- gam(
+    response ~
+      s(moci, k = 6) +
+      s(line, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+
+```{r}
+m_juv_3epac  <- run_gamm_3juvenile(juv_epac)
+m_juv_3ndif  <- run_gamm_3juvenile(juv_ndif)
+m_juv_3tspin <- run_gamm_3juvenile(juv_tspin)
+```
+
+```{r}
+summary(m_juv_3epac)
+summary(m_juv_3tspin)
+summary(m_juv_3ndif)
+```
+
+### adults
+
+using different models for each species, EPAC dominates in adundance and one model for all would be sensitive to EPAc imbalance. 
+
+for adults (accounting for differences between f and m)
+```{r}
+run_gamm_adult <- function(df_sub) {
+  
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      n > 0,
+      !is.na(type),
+      !is.na(line),
+      !is.na(year)
+    ) %>%
+    mutate(
+      type = factor(type),
+      line = factor(line),
+      year = factor(year),
+      cruise = factor(cruise),
+      response = log(volume_weighted + 1)
+    )
+  
+  model <- gam(
+    response ~
+      type +
+      s(moci, by = type, k = 6) +
+      s(cruise, bs = "re") +
+      s(year, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+running the model
+
+
+```{r}
+m_adult_epac <- run_gamm_adult(adult_epac)
+m_adult_ndif <- run_gamm_adult(adult_ndif)
+m_adult_tspin <- run_gamm_adult(adult_tspin)
+```
+
+
+```{r}
+summary(m_adult_epac)
+summary(m_adult_tspin)
+summary(m_adult_ndif)
+```
+```{r}
+gam.check(m_juv_2epac)
+```
+
+Secondary model, including line and moci:
+
+```{r}
+run_gamm_2adult <- function(df_sub) {
+  
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      n > 0,
+      !is.na(type),
+      !is.na(line),
+      !is.na(year)
+    ) %>%
+    mutate(
+      type = factor(type),
+      line = factor(line),
+      year = factor(year),
+      response = log(volume_weighted + 1)
+    )
+  
+  model <- gam(
+    response ~
+      type +
+      s(moci, by = type, k = 6) +
+      s(line, bs = "re") +
+      s(year, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+running the model
+
+
+```{r}
+m_adult_2epac <- run_gamm_2adult(adult_epac)
+m_adult_2ndif <- run_gamm_2adult(adult_ndif)
+m_adult_2tspin <- run_gamm_2adult(adult_tspin)
+```
+
+
+```{r}
+summary(m_adult_2epac)
+summary(m_adult_2tspin)
+summary(m_adult_2ndif)
+```
+testing depth this time:
+
+Secondary model, including line and moci:
+
+```{r}
+run_gamm_3adult <- function(df_sub) {
+  
+  df_sub <- df_sub %>%
+    filter(
+      !is.na(volume_weighted),
+      !is.na(moci),
+      !is.na(n),
+      n > 0,
+      !is.na(type),
+      !is.na(line),
+      !is.na(year),
+      !is.na(depth_mean)
+    ) %>%
+    mutate(
+      type = factor(type),
+      line = factor(line),
+      year = factor(year),
+      response = log(volume_weighted + 1)
+    )
+  
+  model <- gam(
+    response ~
+      type +
+      s(moci, by = type, k = 6) +
+      s(line, bs = "re") +
+      s(depth_mean) +
+      s(year, bs = "re"),
+    weights = n,
+    data = df_sub,
+    method = "REML"
+  )
+  
+  return(model)
+}
+```
+
+running the model
+
+
+```{r}
+m_adult_3epac <- run_gamm_3adult(adult_epac)
+m_adult_3ndif <- run_gamm_3adult(adult_ndif)
+m_adult_3tspin <- run_gamm_3adult(adult_tspin)
+```
+
+
+```{r}
+summary(m_adult_3epac)
+summary(m_adult_3tspin)
+summary(m_adult_3ndif)
+```
+
+
+
+
+### standardized effects plot (with gam)
+
+```{r}
+# EPAC
+epac_eff <- ggpredict(m_adult_epac, terms = "moci")
+
+# NDIF
+ndif_eff <- ggpredict(m_adult_ndif, terms = "moci")
+
+# tspin
+tspin_eff <- ggpredict(m_adult_tspin, terms = "moci")
+
+epac_eff$species <- "E. pacifica"
+ndif_eff$species <- "N. difficilis"
+tspin_eff$species <- "T. spinifera"
+
+eff_all <- bind_rows(epac_eff, ndif_eff, tspin_eff)
+
+
+eff_all2 <- eff_all %>%
+  group_by(species) %>%
+  mutate(
+    predicted_centered = predicted - predicted[which.min(abs(x - mean(x)))],
+    conf.low_centered = conf.low - predicted[which.min(abs(x - mean(x)))],
+    conf.high_centered = conf.high - predicted[which.min(abs(x - mean(x)))]
+  ) %>%
+  ungroup()
+
+
+ggplot(eff_all2,
+       aes(y = predicted_centered, x = x, color = species)) +
+  
+  # main lines
+  geom_line(linewidth = 1.4) +
+  
+  # subtle endpoints (start + end of each curve)
+  geom_point(
+    data = eff_all2 %>%
+      group_by(species) %>%
+      slice(c(1, n())) %>%
+      ungroup(),
+    aes(y = predicted_centered, x = x, color = species),
+    size = 2,
+    alpha = 0.6
+  ) +
+  
+  # reference line (no climate effect baseline)
+  geom_hline(yintercept = mean(eff_all2$x), 
+             linetype = "dashed", alpha = 0.4) +
+
+  
+  scale_color_viridis_d(option = "D", end = 0.85) +
+  
+  labs(
+    y = "Deviation in predicted body size",
+    x = "MOCI (climate conditions)",
+    title = "Species-specific responses of krill body size to climate variability"
+  ) +
+  
+  theme_minimal(base_size = 14) +
+  
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+```
+
+
+
+
+```{r}
+species_sum <- df %>%
+  group_by(species) %>%
+  summarise(total_n = sum(tot_num, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    perc = total_n / sum(total_n),
+    label = paste0(round(perc * 100, 1), "%")
+  )
+
+ggplot(species_sum, aes(x = "", y = total_n, fill = species)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  
+  scale_fill_manual(values = species_colors) +
+  
+  labs(title = "Species composition of krill samples") +
+  theme_void()
+```
+
+
+### day vs night density 
+
+
+
+```{r}
+ggplot(data_krill,
+       aes(x = log10(tot_num + 1), fill = diel)) +
+  geom_density(alpha = 0.5) +
+  facet_grid(type ~ species_code) +
+  theme_minimal()
+```
+```{r}
+ggplot(data_krill,
+       aes(x = diel, y = tot_num, fill = diel)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  facet_grid(type ~ species_code) +
+  theme_minimal()
+```
+
+
+
+### gam plot for adults
+
+```{r}
+make_gam_plot_data <- function(model, species_name, line_level = NULL, year_level = NULL) {
+  
+  model_data <- model$model
+  
+  if (is.null(line_level)) {
+    line_level <- names(sort(table(model_data$line), decreasing = TRUE))[1]
+  }
+  
+  if (is.null(year_level)) {
+    year_level <- names(sort(table(model_data$year), decreasing = TRUE))[1]
+  }
+  
+  newdata <- expand.grid(
+    moci = seq(min(model_data$moci, na.rm = TRUE),
+               max(model_data$moci, na.rm = TRUE),
+               length.out = 200),
+    type = levels(model_data$type),
+    line = factor(line_level, levels = levels(model_data$line)),
+    year = factor(year_level, levels = levels(model_data$year))
+  )
+  
+  preds <- predict(model, newdata = newdata, se.fit = TRUE, type = "response")
+  
+  newdata <- newdata %>%
+    mutate(
+      fit = preds$fit,
+      se = preds$se.fit,
+      lower = fit - 1.96 * se,
+      upper = fit + 1.96 * se,
+      species_code = species_name,
+      type = recode(as.character(type), "f" = "Female", "m" = "Male")
+    )
+  
+  return(newdata)
+}
+
+plot_epac  <- make_gam_plot_data(m_adult_2epac, "EPAC")
+plot_tspin <- make_gam_plot_data(m_adult_2tspin, "TSPIN")
+plot_ndif  <- make_gam_plot_data(m_adult_2ndif, "NDIF")
+
+plot_all_adults <- bind_rows(plot_epac, plot_tspin, plot_ndif)
+
+ggplot(plot_all_adults,
+       aes(x = moci, y = fit, color = type, fill = type)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ species_code, scales = "free_y") +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  ) +
+  labs(
+    x = "MOCI",
+    y = "Predicted log(body volume + 1)",
+    color = "Type",
+    fill = "Type"
+  )
+```
+
+```{r}
+# --- helper to build prediction data ---
+make_pred <- function(model, var, var_seq, species_name) {
+  
+  model_data <- model$model
+  
+  # pick most common levels for random effects
+  line_level <- names(sort(table(model_data$line), decreasing = TRUE))[1]
+  year_level <- names(sort(table(model_data$year), decreasing = TRUE))[1]
+  
+  newdata <- expand.grid(
+    moci = if (var == "moci") var_seq else mean(model_data$moci, na.rm = TRUE),
+    depth_mean = if (var == "depth_mean") var_seq else mean(model_data$depth_mean, na.rm = TRUE),
+    type = levels(model_data$type),
+    line = factor(line_level, levels = levels(model_data$line)),
+    year = factor(year_level, levels = levels(model_data$year))
+  )
+  
+  preds <- predict(model, newdata = newdata, se.fit = TRUE, type = "response")
+  
+  newdata %>%
+    mutate(
+      fit = preds$fit,
+      se = preds$se.fit,
+      lower = fit - 1.96 * se,
+      upper = fit + 1.96 * se,
+      type = recode(as.character(type), "f" = "Female", "m" = "Male"),
+      species_code = species_name
+    )
+}
+
+# --- build prediction data ---
+
+# MOCI sequence
+moci_seq <- seq(
+  min(m_adult_3epac$model$moci, na.rm = TRUE),
+  max(m_adult_3epac$model$moci, na.rm = TRUE),
+  length.out = 200
+)
+
+# Depth sequence
+depth_seq <- seq(
+  min(m_adult_3epac$model$depth_mean, na.rm = TRUE),
+  max(m_adult_3epac$model$depth_mean, na.rm = TRUE),
+  length.out = 200
+)
+
+plot_moci <- make_pred(m_adult_3epac, "moci", moci_seq, "EPAC")
+plot_depth <- make_pred(m_adult_3epac, "depth_mean", depth_seq, "EPAC")
+
+# --- LEFT: EPAC vs MOCI ---
+p_moci <- ggplot(plot_moci,
+                 aes(x = moci, y = fit, color = type, fill = type)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, color = NA) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 13) +
+  labs(
+    x = "MOCI",
+    y = "Predicted log(body volume + 1)",
+    title = "EPAC vs Climate"
+  ) +
+  theme(legend.position = "none")
+
+# --- RIGHT: EPAC vs Depth ---
+p_depth <- ggplot(plot_depth,
+                  aes(x = depth_mean, y = fit, color = type, fill = type)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2, color = NA) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 13) +
+  labs(
+    x = "Depth",
+    y = "Predicted log(body volume + 1)",
+    title = "EPAC vs Depth"
+  ) +
+  theme(legend.position = "right")
+
+# --- COMBINE ---
+p_moci + p_depth
+```
+
+
+
+
+### gam plot for juves:
+
+
+```{r}
+make_gam_plot_data_juv <- function(model, species_name, line_level = NULL, year_level = NULL) {
+  
+  model_data <- model$model
+  
+  if (is.null(line_level)) {
+    line_level <- names(sort(table(model_data$line), decreasing = TRUE))[1]
+  }
+  
+  if (is.null(year_level)) {
+    year_level <- names(sort(table(model_data$year), decreasing = TRUE))[1]
+  }
+  
+  newdata <- expand.grid(
+    moci = seq(min(model_data$moci, na.rm = TRUE),
+               max(model_data$moci, na.rm = TRUE),
+               length.out = 200),
+    type = levels(model_data$type),
+    line = factor(line_level, levels = levels(model_data$line)),
+    year = factor(year_level, levels = levels(model_data$year))
+  )
+  
+  preds <- predict(model, newdata = newdata, se.fit = TRUE, type = "response")
+  
+  newdata <- newdata %>%
+    mutate(
+      fit = preds$fit,
+      se = preds$se.fit,
+      lower = fit - 1.96 * se,
+      upper = fit + 1.96 * se,
+      species_code = species_name
+    )
+  
+  return(newdata)
+}
+
+plot_epac_juv  <- make_gam_plot_data_juv(m_juv_2epac, "EPAC")
+plot_tspin_juv <- make_gam_plot_data_juv(m_juv_2tspin, "TSPIN")
+plot_ndif_juv  <- make_gam_plot_data_juv(m_juv_2ndif, "NDIF")
+
+plot_all_adults <- bind_rows(plot_epac, plot_tspin, plot_ndif)
+
+ggplot(plot_all_adults,
+       aes(x = moci, y = fit)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ species_code, scales = "free_y") +
+  theme_minimal(base_size = 13) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  ) +
+  labs(
+    x = "MOCI",
+    y = "Predicted log(body volume + 1)"
+  )
+```
+
