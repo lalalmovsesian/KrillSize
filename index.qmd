@@ -1,38 +1,19 @@
 ---
-title: "Krill Size"
-subtitle: "Changes in krill size in CCE"
-author: Lala Movsesian
+title: "Euphausiid size variation - link"
+subtitle: Variation in euphausiid body size in Central California Current 
+author: "Lala M"
 format: html
+code-fold: true
+editor: visual
 toc: true
-toc-depth: 3
 ---
 
+# Setup
 
+::: {.callout-note collapse="true"}
+## Click here to expand
 
-
-# Data Exploration
-Includes tables showing sample size, cruises, jars, day vs night sample abundance, dominant species compared over the years, etc.
-
-
-# Body size and MOCI
-Includes body size comapred with MOCI in juveniles and adults, includes visualizations and GAMs
-
-
-# Body size and other climate indices
-
-
-
-
-# Decision Log
-
-includes decisions made during data analysis and reasoning (brief reasoning for main decisions also mentioned in the respective section in between code chunks)
-
-
-
-
-# Other index
-
-loading packages:
+loading libraries
 
 ```{r}
 library(here)
@@ -50,338 +31,1497 @@ library(ggeffects)
 library(gratia)
 library(janitor)
 library(sf)
-library(plotly)
+library(lme4)
+library(lmerTest)
+library(performance)
+library(glmmTMB)
+library(RColorBrewer)
+library(forcats)
+library(scales)
+library(writexl)
+library(scico)
+library(kableExtra)
+library(forcats)
+library(scales)
+library(ggpubr)
 ```
 
-
-loading data:
+Loading data files: Krill measurement, percentage, and station data files updated in September 2026 following corrections by Meredith.
 
 ```{r}
-raw_data <- read_excel(here("data", "raw", "krill_size.xlsx"))
-raw_data_2025 <- read_excel(here("data", "raw", "2025_krill_size.xlsx"))
-moci_data <- read.csv(here("data", "raw", "CaliforniaMOCI_long.csv"))
-loc_data <- read_excel(here("data","raw", "locdata.xlsx"))
-climate_raw <- read_excel(here("data","raw", "climate_ocean_indices.xlsx"))
-tow_data <- read_excel(here("data","raw", "tow_data.xlsx"))
-
+raw_size <- read_excel(here("data", "updated", "tucker_size.xlsx"))
+raw_station <- read_excel(here("data", "updated", "tucker_station.xlsx"))
+raw_percentage <- read_excel(here("data", "updated", "tucker_percentages.xlsx"))
+raw_moci <- read.csv(here("data", "raw", "CaliforniaMOCI_long.csv"))
+raw_climate <- read_excel(here("data","raw", "climate_ocean_indices.xlsx"))
 ```
 
-# Creating main dataframe
+Adding year and month columns, changing all TT station to MW (used interchangeably in cruises)
 
-## Filtering data
+Excluding egg, nauplii, and protozoea.
 
-Extracting year and month information from the cruise column and converting it to a convenient format. Creating base_date in the yyyy-mm-01 format to make sure it is treated as date in R. Used "cruise" column as reference rather than "date", since some sampling is done early in the next month (e.g. sampling date is 7/1 but it's from june cruise)
+Adding length and width mean and bins
 
-cleaning up 2025 data:
+Adding length bin and total jar count and density number columns:
 
-```{r}
-data_2025 <- clean_names(raw_data_2025) %>%
-  rename(jar = id_jar)
-data_2025$line <- as.character(data_2025$line)
-```
-
-
-adding 2025 data:
+Note: zoea will lose the range but zoea data is not used in size analyses
 
 ```{r}
-data_all <- bind_rows (raw_data, data_2025) %>%
-  mutate(base_date = make_date(
-      year  = 2000 + as.numeric(substr(cruise, 4, 5)),
-      month = as.numeric(substr(cruise, 6, 7)),
-      day   = 1))%>% 
-  relocate(base_date, .after = date)
-```  
-
-adding time and location data:
-
-```{r}
-tow_data <- clean_names(tow_data) %>%
-  rename(jar = id_jar)
-
-data_all <- data_all %>%
-  left_join(
-    tow_data %>% select(lat_in, lon_in, jar, time_in, depth_mean), by = "jar")%>%
-  mutate(time_in = hms::as_hms(time_in))
-```
-
-adding D/N for times
-
-```{r}
-data_all <- data_all %>%
-  mutate(hour = hour(time_in),
-  diel = case_when(
-      hour >= 6 & hour < 18 ~ "day",
-      TRUE ~ "night"))
-```
-
-adding climate indices:
-
-```{r}
-
-moci_indices <- moci_data %>%
-  select(Year, Season, North.California..38.42N.) %>%
-  rename(value_raw = North.California..38.42N.) %>%
-  mutate(season_order = case_when(
-      Season == "JFM" ~ 1,
-      Season == "AMJ" ~ 2,
-      Season == "JAS" ~ 3,
-      Season == "OND" ~ 4)) %>%
-  arrange(Year, season_order) %>%
-  mutate(
-    MOCI_lag0 = value_raw,
-    MOCI_lag1 = lag(value_raw, 1),
-    MOCI_lag2 = lag(value_raw, 2),
-    MOCI_lag3 = lag(value_raw, 3)) %>%
-  select(Year, Season, starts_with("MOCI_lag")) %>%
-  pivot_longer(
-    cols = starts_with("MOCI_lag"),
-    names_to = "variable",
-    values_to = "value") %>%
-  mutate(
-    index = "MOCI",
-    lag = as.numeric(gsub("MOCI_lag", "", variable))) %>%
-  select(Year, Season, variable, index, lag, value) %>%
-  arrange(Year, Season, lag)
-```
-
-
-```{r}
-cruise_lookup <- data_all %>%
-  mutate(
-    Year = year(base_date),
-    Month = month(base_date),
-    Season = case_when(
-      Month %in% c(1, 2, 3) ~ "JFM",
-      Month %in% c(4, 5, 6) ~ "AMJ",
-      Month %in% c(7, 8, 9) ~ "JAS",
-      Month %in% c(10, 11, 12) ~ "OND")) %>%
-  select(cruise, Year, Season) %>%
-  distinct() 
-
-moci_indices_with_cruise <- moci_indices %>%
-  left_join(cruise_lookup, by = c("Year", "Season")) %>%
-  select(-Year, -Season) %>% drop_na()
-```
+data_jars <- clean_names(raw_size) %>%  
   
-organizing the data: cleaning up the names, changing all cruise names to ACC format
-
-```{r}
-climate <- climate_raw %>%
-  filter(!is.na(cruise)) %>%
-  rename_with(~ str_replace(., "-(\\d+)", "_lag\\1")) %>%
-    mutate(cruise = case_when(
-    cruise == "ACM1705" ~ "ACC1705", 
-    cruise == "ACD1807" ~ "ACC1807",
-    cruise == "ACM2205" ~ "ACC2205", 
-    cruise == "ACD2206" ~ "ACC2206",
-    
-    TRUE ~ cruise))
-```
-
-adding lags in a separate column
-
-```{r}
-df_climate <- climate %>% 
-  select(cruise, SOI, SOI_lag1, SOI_lag2, SOI_lag3, PDO, PDO_lag1, PDO_lag2, PDO_lag3, NPGO, NPGO_lag1, NPGO_lag2, NPGO_lag3, CUTI, CUTI_lag1, CUTI_lag2, CUTI_lag3, BEUTI, BEUTI_lag1, BEUTI_lag2, BEUTI_lag3, UI, UI_lag1, UI_lag2, UI_lag3, SEFI_SST_mean, SEFI_SST_anomalies, SEFI_SST_mean_lag1, SEFI_SST_anomalies_lag1, SEFI_SST_mean_lag2, SEFI_SST_anomalies_lag2, SEFI_SST_mean_lag3, SEFI_SST_anomalies_lag3)  %>%
-  pivot_longer(cols = -cruise,
-    names_to = "variable",
-    values_to = "value") %>%
+  filter(!type %in% c("egg", "nauplii", "protozoea")) %>%
   
-  mutate(index = str_extract(variable, "^[^_]+"),     
-    lag = str_extract(variable, "(?<=lag)\\d+"))   %>%
+   mutate(year = 2000 + as.numeric(substr(cruise, 4, 5)),
+        month = as.numeric(substr(cruise, 6, 7)),
+        
+        station = case_when(station == "TT" ~ "MW",
+         TRUE ~ station),
+              
+        season = case_when(
+             month %in% c(1, 2, 3) ~ "JFM",
+             month %in% c(4, 5, 6) ~ "AMJ",
+             month %in% c(7, 8, 9) ~ "JAS",
+             month %in% c(10, 11, 12) ~ "OND"),
+        
+       length_bin = (floor(length_l)),
+       length_mid = (length_l + length_h) / 2,
+       width_mid = (width_l + width_h) / 2) %>%
   
-  mutate(lag = ifelse(is.na(lag), 0, as.numeric(lag))) %>%
-
-  mutate(index = case_when(
-    index == "SEFI" ~ "SST", TRUE ~ index))
+  relocate(length_mid, .after = length_h) %>%
+  relocate(width_mid, .after = width_h) %>%
+  relocate(length_bin, .after= length_l) %>%
+  relocate(year, .after = date) %>%
+  relocate(month, .after = year) %>%
+  relocate(season, .after = month) %>%
+  
+  
+  group_by(id_jar) %>%
+    mutate(
+         dens_jar = sum(dens_number, na.rm = TRUE)) %>% 
+    ungroup()
 ```
 
-adding all indices in one df:
+Preparing station data: to do: ME mentioned seconds in some emails. Check if that is a column in data files
+
+Changing all TT station to MW (used interchangeably in cruises)
+
+Defining time values as hms time format.
+
+Changing depth values to absolute numbers instead of negative.
+
+Adding "diel" column to differentiate day and night samples: samples collected between 6am and 6pm are considered day samples, otherwise, night. to do: check sunrise and sunset times for data that has a closer hour to 6pm/6am
 
 ```{r}
-df_all_indices <- bind_rows(df_climate, moci_indices_with_cruise)
-```
-
-
-Joining all indices with krill data:
-
-```{r}
-data_all_climate <- left_join(data_all, df_all_indices, by = "cruise")
-```
-
-
+data_station <- clean_names(raw_station) %>%
  
- Filtering months of cruises, only keeping EPAC adults:
+  
+  mutate(
+    time_in = hms::as_hms(time_in),
+    time_out = hms::as_hms(time_out),
+
+    open_mid = na_if(open_mid, "DNF"),
+    open_mid = hms::as_hms(as.numeric(open_mid) * 86400),
+    
+    open_top = na_if(open_top, "DNF"),
+    open_top = hms::as_hms(as.numeric(open_top) * 86400), 
+    
+    hour = hour(time_in),
+    
+    diel = case_when(
+         hour >= 6 & hour < 18 ~ "day",
+         hour >= 18 | hour < 6 ~ "night", TRUE ~ NA_character_),
+  
+
+    depth_mean = abs(depth_mean),
+    depth_min = abs(depth_min),
+    depth_max = abs(depth_max),
+    
+    station = case_when(station == "TT" ~ "MW",
+      TRUE ~ station)) 
+
+```
+
+Adding station data to main dataset
 
 ```{r}
-data_krill <- data_all_climate %>%
-  filter(! month(base_date) %in% c(2, 4, 10)) %>%
+data_w_station <- data_jars %>%
+  
+  left_join(
+    data_station %>% select(position, lat_in, lon_in, id_jar, hour, diel, depth_mean, temp_mean, volume_m3), by = join_by(id_jar))
+  
+```
+
+Adding climate indices
+
+```{r}
+clean_climate <- clean_names(raw_climate) %>%
+
+  mutate(
+    cruise = recode(cruise, "ACD1807" = "ACC1807"),
+    cruise = recode(cruise, "ACD2206" = "ACC2206"),
+    cruise = recode(cruise, "ACM1705" = "ACC1705"),
+    cruise = recode(cruise, "ACM2205" = "ACC2205"))
+```
+
+```{r}
+data_w_climate <- data_w_station %>%
+  
+  left_join(
+    clean_climate %>% select(cruise, pdo, npgo, cuti, beuti, sefi_sst_anomalies), by = join_by(cruise))
+```
+
+Preparing MOCI dataset, adding mean cen and norcal column to do: whats time column in MOCI dataset
+
+```{r}
+clean_moci <- clean_names(raw_moci) %>%
+  
+  rename(
+    moci_norcal = north_california_38_42n,
+    moci_cencal = central_california_34_5_38n, 
+    moci_socal= southern_california_32_34_5n) %>%
+  
+  mutate(moci_nc_mean = (moci_norcal + moci_cencal)/2)
+```
+
+Adding MOCI values for Northern and Central California to main dataset.
+
+```{r}
+data_all <- data_w_climate %>%
+  
+  left_join(
+    clean_moci %>%
+      select(year, season, moci_norcal, moci_cencal, moci_mean = moci_nc_mean),
+    by = c("year", "season"))
+```
+
+## Colors
+
+Assigning levels and colors to values:
+
+```{r}
+species_colors <- c( 
+  "EPAC" = "#440154FF", 
+  "TSPIN" = "#7AD151FF", 
+  "NDIF" = "#249F87" )
+
+life_stage_order <- c("egg", "nauplii", "protozoea", "zoea", "juv", "imm", "imm m", "imm f", "adult", "f", "m")
+
+speceis_order <- c("EPAC", "NDIF", "TSPIN")
+```
+
+```{r}
+env_colors <- c(
+  "moci" = "#FE7D6A",
+  "npgo" = "#e8c828",
+  "pdo" = "#39cccc",
+  "sefi_sst_anomalies"= "#d81b60",
+  "cuti" =  "#Dd7e0e",
+  "beuti" = "#e161ff" )
+
+```
+
+model summary table color coding functions
+
+to do: check the placement of this and in general if the code makes sense
+
+```{r}
+color_col <- function(x) {pal <- c("#d73027", "#fc8d59", "#fee08b", "#1a9850") 
+  
+  ranks <- rank(x, ties.method = "average")
+  bins <- cut(
+    ranks,
+    breaks = 4,
+    labels = pal,
+    include.lowest = TRUE)
+  
+  cell_spec(round(x, 3), background = as.character(bins), color = "black")}
+
+color_col_low_good <- function(x) {
+  pal <- c("#1a9850", "#fee08b", "#fc8d59", "#d73027")
+  # green, yellow, orange, red
+  
+  ranks <- rank(x, ties.method = "average")
+  bins <- cut(
+    ranks,
+    breaks = 4,
+    labels = pal,
+    include.lowest = TRUE)
+  
+  cell_spec(round(x, 3), background = as.character(bins), color = "black")}
+
+```
+
+Excluding cruises from February (n=1), and October (n=3).
+
+NOTE: April (n=2) only includes night and nearshore-day samples. in theory, April samples would be valid when the time resolution is seasons (included in spring/AMJ) but seasonal comparisons are often for day/off shore samples, therefore April samples are excluded as a result of filtering for sampling time and location.
+
+Excluding samples collected at night - insufficient for analysis: day: 424 jars night: 117 jars
+
+Excluding nearshore samples - insufficient for analysis: offshore = 405 jars nearshore = 33 jars
+
+Changing all imm m to m, and imm f to f for consistency (some samples include rows labeled as m in lower than 11mm ranges) to do: check this since new data has corrections in assigned life stage
+
+Keeping only juvenile and adult data NOTE: unsexed adults (type = "adult") will be included in analyses which group all adults together, but excluded when females and males are being compared.
+
+Filtering size to exclude zoea.
+
+Only including numerically dominant species -- Euphausia pacifica (EPAC), Nematoscelis difficilis (NDIF), Thysanoessa spinifera (TSPIN), excluding euphausiidae).
+
+to do: would be interesting to model all euphausiid adults regardless of species or sex, this way unidentifies euphausiidae will also be included.
+
+Total valid jars: 541
+
+```{r}
+data_krill <- data_all %>%
+  
+  filter(
+      ! month %in% c(2, 10),
+      diel == "day",
+      ! station %in% c("EX", "E", "ME", "ME/EX", "M/ME", "M", "Mew", ".", "N/A")) %>%
+  
+  
   mutate(type = case_when(
       type == "imm m" ~ "m",
       type == "imm f" ~ "f",
       TRUE ~ type)) %>%
-  filter(type %in% c("f", "m")) %>%
-  filter(species_name %in% "EUP Euphausia pacifica")
+  
+  filter(type %in% c("juv", "f", "m", "adult"),
+         length_l > 4,
+  
+          species_name %in% c(
+           "EUP Euphausia pacifica",
+           "EUP Nematoscelis difficilis",
+           "EUP Thysanoessa spinifera")) %>%
+  
+  mutate(
+    species_code = case_when(
+      species_name == "EUP Euphausia pacifica" ~ "EPAC",
+      species_name == "EUP Thysanoessa spinifera" ~ "TSPIN",
+      species_name == "EUP Nematoscelis difficilis" ~ "NDIF")) 
 ```
 
-
-creating separate datasets for day and night:
+total jar count of selected rows (species and type) to do: check if I ever use length or width mean vs bins
 
 ```{r}
-data_day <- data_krill %>%
-  filter(diel == "day")
+data_krill <- data_krill%>%
+  
+    group_by(id_jar) %>%
+  mutate(sel_dens_jar = sum(dens_number, na.rm = TRUE))%>%
+   ungroup() %>%
+  
+relocate(sel_dens_jar, .after = dens_jar) 
 
-data_night <- data_krill %>%
-  filter(diel == "night")
 ```
 
-## Size Calculation
+calculating weighted mean length using density number in each jar for each species/type:
 
-Adding columns for width and length midpoint for each size range in each type:
+- tot_dens shows the sum of density number in the jar - total number of euphausiids in the jar divided by volume of filtered water also accounting for on-board subsampling.
+- n_rows shows the number of rows that were consolidated in each jar
 
-```{r}
-df <- data_day%>%
-  mutate(length_mid = (length_l + length_h) / 2) %>%
-  mutate(width_mid = (width_l + width_h) / 2) %>%
-relocate(length_mid, .after = length_h) %>%
-  relocate(width_mid, .after = width_h)
-```
-
-Calculating volume per each row by considering krill cone-shaped, using width_mid as diameter and length_mid as height:
+Here, each jar has one value per species/type (max rows for a jar is 9)
 
 ```{r}
-df <- df %>%
-  mutate(volume = (1/3) * pi * (width_mid / 2)^2 * length_mid) %>%
-  relocate(volume, .after = width_mid) %>%
-  filter(!is.na(volume)) 
-```
-
-Calculating mean volume per jar: (weighted mean of volume instead of means of l and w first then calculating mean volume with mean l and w)
-
-```{r}
-df_vol <- df %>%
-  group_by( jar, type, line, cruise, variable, value, index, lag, depth_mean) %>%
-  filter(!is.na(tot_num)) %>%
-  summarise(n = sum(tot_num), volume_weighted = sum(volume * tot_num) / n,
+data_meanlen_jar <- data_krill %>%
+  
+  filter(
+    is.finite(length_mid),
+    is.finite(dens_number)) %>%
+  
+  group_by(id_jar, moci_cencal, moci_norcal, species_code, type, dens_jar, line, pdo, npgo) %>%
+  
+  summarise(
+    mean_length = weighted.mean(length_mid, w = dens_number),
+    n_rows = n(),
+    
     .groups = "drop")
 ```
 
-
-#Visuals
-
+Here, each cruise has one value per type/species (max rows for a cruise is 9)
 
 ```{r}
-df_vol <- df_vol %>%
-  mutate(cruise = factor(cruise, levels = sort(unique(cruise))))
-```
-
-```{r}
-
-df_volume <- df_vol %>%
-  group_by(cruise, variable, value) %>%
-  summarise(volume_weighted = mean(volume_weighted, na.rm = TRUE), .groups = "drop")
-
-vol_min <- min(df_volume$volume_weighted, na.rm = TRUE)
-vol_max <- max(df_volume$volume_weighted, na.rm = TRUE)
-
-df_plot_scaled <- df_volume %>%
-  group_by(variable) %>%
-  mutate(var_min = min(value, na.rm = TRUE),
-    var_max = max(value, na.rm = TRUE),
-    value_scaled = ifelse(var_max == var_min,
-      (vol_min + vol_max) / 2,  
-      vol_min + (value - var_min) * (vol_max - vol_min) / (var_max - var_min))) %>%
-  ungroup() %>%
-  select(-var_min, -var_max)
-
-
-p <- plot_ly()
-
-p <- p %>%
-  add_bars(
-    data = df_plot_scaled %>% distinct(cruise, volume_weighted),
-    x = ~cruise,
-    y = ~volume_weighted,
-    name = "volume_weighted",
-    opacity = 0.6)
-
-vars <- unique(df_plot_scaled$variable)
-
-for (v in vars) {
-   df_sub <- df_plot_scaled %>% filter(variable == v)
-
-  p <- p %>%
-    add_trace(data = df_sub,
-      x = ~cruise,
-      y = ~value_scaled,
-      type = "scatter",
-      mode = "lines+markers",
-      name = v,
-      visible = "legendonly")}
-
-p <- p %>%
-  layout(
-    title = "Variables vs Weighted Volume (bars)",
-    xaxis = list(title = "Cruise"),
-    yaxis = list(title = "Scaled value"),
-    legend = list(itemclick = "toggle",
-      itemdoubleclick = "toggleothers"),
-    barmode = "overlay")
-
-p
-```
-
-
-
-# Spearman rank correlaion 
-
-(data not normal)
-
-```{r}
-df_plot <- df_vol %>%
-  select(cruise, variable, value, volume_weighted)
-
-results <- df_plot %>%
+data_meanlen_cruise <- data_krill %>%
   
-  group_by(variable) %>%
-  summarise(cor = cor(value, volume_weighted, method = "spearman", use = "complete.obs"),
-    p_value = cor.test(
-      value, volume_weighted,
-      method = "spearman",
-      exact = FALSE
-    )$p.value,
-    n = sum(complete.cases(value, volume_weighted)),
+  filter(
+    is.finite(length_mid),
+    is.finite(dens_number)) %>%
+  
+  group_by(
+    year, season, cruise, moci_cencal, moci_norcal, species_code, type, pdo, npgo) %>%
+  
+  summarise(
+    mean_length = weighted.mean(length_mid, w = dens_number),
+    n_rows = n(),
+    
+    .groups = "drop")
+```
+
+Here, each cruise has one value per species, regardless of type (max rows per cruise are 3)
+
+```{r}
+data_meanlen_cruise_species <- data_krill %>%
+  
+  filter(
+    is.finite(length_mid),
+    is.finite(dens_number)) %>%
+  
+  group_by(
+    year, season, cruise, moci_cencal, moci_norcal, species_code, pdo, npgo) %>%
+  
+  summarise(
+    mean_length = weighted.mean(length_mid, w = dens_number),
+    n_rows = n(),
+    
+    .groups = "drop")
+```
+
+Here, each cruise has one value per species (max rows per cruise are 3), but juvenile measurements are excluded
+
+```{r}
+data_meanlen_cruise_species_adult <- data_krill %>%
+  
+  filter( type != "juv",
+    is.finite(length_mid),
+    is.finite(dens_number)) %>%
+  
+  group_by(
+    year, season, cruise, moci_cencal, moci_norcal, species_code, pdo, npgo) %>%
+  
+  summarise(
+    mean_length = weighted.mean(length_mid, w = dens_number),
+    n_rows = n(),
+    
+    .groups = "drop")
+```
+
+# Functions
+
+## Datasets
+
+Annual environmental factors:
+
+```{r}
+data_annual_env <- data_krill %>%
+  
+  group_by(year) %>%
+  summarise(
+    npgo = mean(unique(npgo)),
+    pdo = mean(unique(pdo)),
+    moci = mean(unique(moci_cencal)),
+    cuti = mean(unique(cuti)),
+    beuti = mean(unique(beuti)),
+    sefi_sst_anomalies = mean(unique(sefi_sst_anomalies)),
+    .groups = "drop" ) 
+```
+
+```{r}
+check <- data_krill %>%
+  filter(year == "2017") %>%
+  select(cruise, id_jar, pdo, npgo, cuti, beuti, sefi_sst_anomalies)
+```
+
+creating dataset of annual length median and Q3 of each specie: showing the 50th and 75th percentile of the pooled, equally weighted jar-level length distributions for each species and year.
+
+```{r}
+length_summary <- data_krill %>%
+
+  filter(!is.na(length_mid)) %>%
+
+  group_by(id_jar, species_code) %>%
+  mutate(
+    dens_species = sum(dens_number, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  
+  filter(dens_species > 0) %>%
+
+  group_by(year, species_code, length_mid) %>%
+  summarise(
+    frequency = sum(dens_number / dens_species, na.rm = TRUE),
+    .groups = "drop" ) %>%
+
+  
+  
+  arrange(year, species_code, length_mid) %>%
+
+  group_by(year, species_code) %>%
+  mutate(
+    cumulative_frequency = cumsum(frequency),
+    total_frequency = sum(frequency, na.rm = TRUE)) %>%
+
+  
+  summarise(
+    median_length = length_mid[
+      which(cumulative_frequency >= total_frequency * 0.50)[1]],
+    
+    q3_length = length_mid[
+      which(cumulative_frequency >= total_frequency * 0.75)[1]],
+    
+    .groups = "drop")
+```
+
+creating dataset of cruise-level length median and Q3 of each species: showing the 50th and 75th percentile of the pooled, equally weighted jar-level length distributions for each species and cruise.
+
+```{r}
+length_sum_cruise <- data_krill %>%
+
+  filter(!is.na(length_mid)) %>%
+
+  group_by(id_jar, species_code) %>%
+  mutate(
+    dens_species = sum(dens_number, na.rm = TRUE)) %>%
+  ungroup() %>%
+
+  
+  filter(dens_species > 0) %>%
+
+  group_by(cruise, species_code, length_mid, moci_cencal) %>%
+  summarise(
+    frequency = sum(dens_number / dens_species, na.rm = TRUE),
+    .groups = "drop" ) %>%
+
+  
+  
+  arrange(cruise, species_code, length_mid, moci_cencal) %>%
+
+  group_by(cruise, species_code, moci_cencal) %>%
+  mutate(
+    cumulative_frequency = cumsum(frequency),
+    total_frequency = sum(frequency, na.rm = TRUE)) %>%
+
+  
+  summarise(
+    median_length = length_mid[
+      which(cumulative_frequency >= total_frequency * 0.50)[1]],
+    
+    q3_length = length_mid[
+      which(cumulative_frequency >= total_frequency * 0.75)[1]],
+    
     .groups = "drop") %>%
   
-  mutate(p_adj = p.adjust(p_value, method = "BH")) %>%
-  arrange(p_adj)
+    left_join(
+    clean_climate %>% select(cruise, pdo, pdo_1, pdo_2, pdo_3, npgo, npgo_1, npgo_2, npgo_3, cuti, cuti_1, cuti_2, cuti_3, beuti, beuti_1, beuti_2, beuti_3, sefi_sst_anomalies, sefi_sst_anomalies_1, sefi_sst_anomalies_2, sefi_sst_anomalies_3), by = join_by(cruise)) 
+  
 ```
 
+## Codes
+
+### Annual bar
+
+Annual length bar plot, with env factor line. (x: year, y: length)
 
 ```{r}
+plot_length_env <- function(data, species, metric, env_data, env_var) {
 
-results %>%
-  mutate(sig = p_adj < 0.05,
-    variable = reorder(variable, cor)) %>%
+  length_df <- data %>%
+    filter(species_code == species)
+
+  plot_df <- length_df %>%
+    left_join(
+      env_data %>% select(year, all_of(env_var)),
+      by = "year")
+
   
-  ggplot(aes(x = cor, y = variable, color = sig)) +
-  geom_point(size = 3) +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  scale_color_manual(values = c("TRUE" = "#1b9e77", "FALSE" = "#d95f02"),
-    labels = c("FALSE" = "Not significant", "TRUE" = "Significant")) +
+  # Labels
+  metric_label <- ifelse(metric == "median_length", "Median", "Q3")
+
+  env_label <- toupper(env_var)
+
   
-  annotate("text", x = -0.25, y = Inf, label = "Negative", vjust = 1.5) +
-  annotate("text", x = 0.25, y = Inf, label = "Positive", vjust = 1.5) +
+  # Secondary axis transformation
+  length_range <- range(plot_df[[metric]], na.rm = TRUE)
+  env_range <- range(plot_df[[env_var]], na.rm = TRUE)
+
+  scale_factor <- diff(length_range) / diff(env_range)
+  offset <- length_range[1] - env_range[1] * scale_factor
+
+  padding <- diff(length_range) * 0.10
+  y_limits <- c(
+  length_range[1] - padding,
+  length_range[2] + padding)
   
-  labs(x = "Spearman correlation with volume_weighted") +
-  theme_minimal()
+  
+ ggplot(plot_df, aes(x = factor(year))) +
+
+  # Body length bars
+  geom_col(
+    aes(y = .data[[metric]]),
+    fill = species_colors[species],
+    width = 0.7,
+    alpha = 0.8) +
+
+   
+  # Environmental index line
+  geom_line(
+    aes(y = .data[[env_var]] * scale_factor + offset, group = 1),
+    color = env_colors[env_var],
+    linewidth = 1,
+    na.rm = TRUE) +
+
+  geom_point(
+    aes(y = .data[[env_var]] * scale_factor + offset),
+    color = env_colors[env_var],
+    size = 2,
+    na.rm = TRUE) +
+
+  scale_y_continuous(
+    name = paste0(metric_label, " body length (mm)"),
+    sec.axis = sec_axis(
+      ~ (. - offset) / scale_factor,
+      name = env_label
+    )
+  ) +
+   
+   
+scale_x_discrete(drop = TRUE)  +
+   
+  labs(
+    x = "Year",
+    title =  paste0( "Annual " ,
+      species, ": ", metric_label,
+      " body length vs. ", env_label)) +
+
+   
+  theme_classic() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 12),
+    axis.title.y.left = element_text(color = "black"),
+    axis.title.y.right = element_text(color = "black")
+  )}
 ```
 
+## Cruise-level scatter
+
+Cruise level scatter plots (x: env factor, y: length)
+
+```{r}
+plot_length_scatter <- function(data, species, metric, env_var) {
 
 
+plot_df <- data %>%
+  filter(species_code == species) %>%
+  filter(
+    is.finite(.data[[env_var]]),
+    is.finite(.data[[metric]])
+  )
+
+p_value <- cor.test(
+  plot_df[[env_var]],
+  plot_df[[metric]],
+  method = "pearson"
+)$p.value
+
+p_color <- ifelse(p_value < 0.05, "forestgreen", "#a91b0d")
+
+  # Labels
+  metric_label <- ifelse(metric == "median_length", "Median", "Q3")
+  env_label <- toupper(env_var)
+
+  ggplot(plot_df,
+         aes(x = .data[[env_var]], y = .data[[metric]])) +
+
+    geom_point(
+      color = species_colors[species],
+      size = 2.5,
+      alpha = 0.8,
+      na.rm = TRUE
+    ) +
+
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      se = TRUE,
+      color = env_colors[env_var],,
+      fill = env_colors[env_var],,
+      alpha = 0.2,
+      na.rm = TRUE
+    ) +
+    
+    # Regression equation
+    stat_regline_equation(
+      aes(label = after_stat(eq.label)),
+      label.x.npc = "left",
+      label.y.npc = 0.98
+    ) +
+
+# Pearson r
+stat_cor(
+  method = "pearson",
+  aes(label = after_stat(r.label)),
+  label.x.npc = "left",
+  label.y.npc = 0.88,
+  color = "black"
+) +
+
+# P-value
+stat_cor(
+  method = "pearson",
+  aes(label = after_stat(p.label)),
+  label.x.npc = "left",
+  label.y.npc = 0.80,
+  color = p_color
+) +
+
+    labs(
+      x = env_label,
+      y = paste0(metric_label, " body length (mm)"),
+      title = paste0(
+        species, ": ", metric_label,
+        " body length vs. ", env_label
+      )
+    ) +
+
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 16, face = "bold"),
+      axis.title = element_text(size = 14),
+      axis.text = element_text(size = 12)
+    )
+}
+```
+
+## Side-by-side
+
+combining bars and scatter:
+
+```{r}
+plot_length_combined <- function(data1, data2, species, metric,
+                                 env_data, env_var,
+                                 widths = c(8, 10)) {
+
+  # Labels
+  metric_label <- ifelse(metric == "median_length", "Median", "Q3")
+  env_label <- toupper(env_var)
+
+  # Shared body length limits
+  y_limits <- range(
+    c(
+      data1[[metric]][data1$species_code == species],
+      data2[[metric]][data2$species_code == species]
+    ),
+    na.rm = TRUE
+  )
+
+  # Left: cruise-level scatterplot
+  p_left <- plot_length_scatter(
+    data2, species, metric, env_var
+  ) +
+    labs(
+      title = "Cruise-level",
+      y = paste0(metric_label, " body length (mm)")
+    ) +
+    coord_cartesian(ylim = y_limits) +
+    theme(
+      plot.title = element_text(size = 13, face = "bold")
+    )
+
+  # Right: annual bar plot
+  p_right <- plot_length_env(
+    data1, species, metric, env_data, env_var
+  ) +
+    labs(
+      title = "Annual"
+    ) +
+    coord_cartesian(ylim = y_limits) +
+    theme(
+      plot.title = element_text(size = 13, face = "bold"),
+      axis.title.y.left = element_blank(),
+      axis.text.y.left = element_blank()
+    )
+
+  # Combine
+  p_left + p_right +
+    plot_layout(widths = widths) +
+    plot_annotation(
+      title = paste0(
+        species, ": ", metric_label,
+        " body length vs. ", env_label
+      ),
+      theme = theme(
+        plot.title = element_text(size = 17, face = "bold"))
+      )
+}
+```
+
+## Lags scatter
+
+cruise-level scatter plots with monthly lags:
+
+```{r}
+plot_length_lag <- function(data, species, metric, index) {
+
+  lag_vars <- c(index, paste0(index, "_", 1:3))
+  lag_labels <- c("No lag", "1-month lag",
+                  "2-month lag", "3-month lag")
+
+  metric_label <- ifelse(metric == "median_length", "Median", "Q3")
+  env_label <- toupper(index)
+
+  # Prepare data
+  plot_df <- data %>%
+    filter(species_code == species) %>%
+    select(all_of(c(metric, lag_vars))) %>%
+    pivot_longer(
+      cols = all_of(lag_vars),
+      names_to = "lag",
+      values_to = "env_value"
+    ) %>%
+    filter(
+      is.finite(env_value),
+      is.finite(.data[[metric]])
+    )
+
+  # Create one plot per lag
+  plots <- lapply(seq_along(lag_vars), function(i) {
+
+    lag_df <- plot_df %>%
+      filter(lag == lag_vars[i])
+
+    # Regression and correlation
+    model <- lm(
+      reformulate("env_value", response = metric),
+      data = lag_df
+    )
+
+    intercept <- coef(model)[1]
+    slope <- coef(model)[2]
+
+    cor_result <- cor.test(
+      lag_df$env_value,
+      lag_df[[metric]],
+      method = "pearson"
+    )
+
+    r <- unname(cor_result$estimate)
+    p <- cor_result$p.value
+
+    p_color <- ifelse(p < 0.05, "forestgreen", "#a91b0d")
+
+    # Annotation labels
+    eq_label <- paste0(
+      "y = ", round(intercept, 2),
+      ifelse(slope < 0, " - ", " + "),
+      abs(round(slope, 2)), "x"
+    )
+
+    r_label <- paste0("r = ", round(r, 3))
+    p_label <- paste0(
+      "p = ", format.pval(p, digits = 2, eps = 0.001)
+    )
+
+    # Scatterplot
+    p_scatter <- ggplot(
+      lag_df,
+      aes(x = env_value, y = .data[[metric]])
+    ) +
+      geom_point(
+        color = species_colors[species],
+        size = 2.5,
+        alpha = 0.8
+      ) +
+      geom_smooth(
+        method = "lm",
+        formula = y ~ x,
+        se = TRUE,
+        color = env_colors[index],
+        fill = env_colors[index],
+        alpha = 0.2
+      ) +
+      labs(
+        title = lag_labels[i],
+        x = env_label,
+        y = paste0(metric_label, " body length (mm)")
+      ) +
+      theme_classic() +
+      theme(
+        plot.title = element_text(size = 13, face = "bold"),
+        axis.title = element_text(size = 12),
+        axis.text = element_text(size = 11)
+      )
+
+    # Annotation panel
+    p_stats <- ggplot() +
+      annotate(
+        "text", x = 0, y = 0.75,
+        label = eq_label,
+        hjust = 0, size = 4
+      ) +
+      annotate(
+        "text", x = 0, y = 0.55,
+        label = r_label,
+        hjust = 0, size = 4
+      ) +
+      annotate(
+        "text", x = 0, y = 0.35,
+        label = p_label,
+        hjust = 0, size = 4,
+        color = p_color
+      ) +
+      xlim(0, 1) +
+      ylim(0, 1) +
+      theme_void()
+
+    # Combine scatter + statistics
+    p_scatter + p_stats +
+      patchwork::plot_layout(widths = c(4, 1.5))
+  })
+
+  # Stack all four plots
+  patchwork::wrap_plots(plots, ncol = 1) +
+    patchwork::plot_annotation(
+      title = paste0(
+        species, ": ", metric_label,
+        " body length vs. ", env_label
+      ),
+      theme = theme(
+        plot.title = element_text(size = 16, face = "bold")
+      )
+    )
+}
+```
+:::
 
 
+# EPAC - median
 
+```{r}
+#| fig-width: 12
+#| fig-height: 4
 
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
 
+```{r}
+#| fig-width: 8
+#| fig-height: 12
 
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "sefi_sst_anomalies")
+```
+
+# EPAC - Q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "sefi_sst_anomalies")
+```
+
+# TSPIN - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "sefi_sst_anomalies")
+```
+
+# TSPIN - Q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "sefi_sst_anomalies")
+```
+
+# NDIF - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "sefi_sst_anomalies")
+```
+
+# NDIF - Q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "npgo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "npgo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "pdo")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "cuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "beuti")
+```
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 8
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "sefi_sst_anomalies")
+```
