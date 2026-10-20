@@ -213,7 +213,7 @@ data_all <- data_w_climate %>%
   
   left_join(
     clean_moci %>%
-      select(year, season, moci = moci_cencal),
+      select(year, season, moci = moci_cencal, moci_1, moci_2, moci_3),
     by = c("year", "season"))
 ```
 
@@ -446,10 +446,6 @@ all_env <- all_env_no2025  %>%
     select(moci = moci_cencal, moci_1, moci_2, moci_3, year, season))
 ```
 
-
-
-
-
 Annual environmental factors:
 
 ```{r}
@@ -520,16 +516,16 @@ length_sum_cruise <- data_krill %>%
   
   filter(dens_species > 0) %>%
 
-  group_by(cruise, species_code, length_mid, moci) %>%
+  group_by(cruise, species_code, length_mid, moci, moci_1, moci_2, moci_3) %>%
   summarise(
     frequency = sum(dens_number / dens_species, na.rm = TRUE),
     .groups = "drop" ) %>%
 
   
   
-  arrange(cruise, species_code, length_mid, moci) %>%
+  arrange(cruise, species_code, length_mid, moci, moci_1, moci_2, moci_3) %>%
 
-  group_by(cruise, species_code, moci) %>%
+  group_by(cruise, species_code, moci, moci_1, moci_2, moci_3) %>%
   mutate(
     cumulative_frequency = cumsum(frequency),
     total_frequency = sum(frequency, na.rm = TRUE)) %>%
@@ -962,9 +958,7 @@ plot_length_lag <- function(data, species, metric, index) {
 
 ### Heatmap
 
-
 heatmap function
-
 
 ```{r}
 plot_length_heatmap_2mm <- function(species, size_filter = "median", env_factor) {
@@ -1177,10 +1171,6 @@ plot_length_heatmap_4mm <- function(species, size_filter = "median", env_factor)
       plot.title = element_text(hjust = 0.5) )}
 
 ```
-
-
-
-
 :::
 
 # Length distribution
@@ -1382,16 +1372,141 @@ ggplot(length_dist_violin_adult %>%
 
 ## EPAC - median
 
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "moci")
+```
+
 ## EPAC - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "moci")
+```
 
 ## TSPIN - median
 
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "moci")
+```
+
 ## TSPIN - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "moci")
+```
 
 ## NDIF - median
 
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "moci")
+```
+
 ## NDIF - q3
 
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "moci")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "q3_length", "moci")
+```
 
 # NPGO
 
@@ -1418,7 +1533,6 @@ plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "npgo")
 ```
 
-
 ## EPAC - q3
 
 ```{r}
@@ -1441,7 +1555,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "npgo")
 ```
-
 
 ## TSPIN - median
 
@@ -1466,7 +1579,6 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "npgo")
 ```
 
-
 ## TSPIN - q3
 
 ```{r}
@@ -1490,8 +1602,8 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "npgo")
 ```
 
-
 ## NDIF - median
+
 ```{r}
 #| fig-width: 12
 #| fig-height: 4
@@ -1512,7 +1624,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "npgo")
 ```
-
 
 ## NDIF - q3
 
@@ -1537,10 +1648,7 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "npgo")
 ```
 
-
-
 # PDO
-
 
 ## EPAC - median
 
@@ -1565,7 +1673,6 @@ plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "pdo")
 ```
 
-
 ## EPAC - q3
 
 ```{r}
@@ -1588,7 +1695,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "pdo")
 ```
-
 
 ## TSPIN - median
 
@@ -1613,7 +1719,6 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "pdo")
 ```
 
-
 ## TSPIN - q3
 
 ```{r}
@@ -1637,8 +1742,8 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "pdo")
 ```
 
-
 ## NDIF - median
+
 ```{r}
 #| fig-width: 12
 #| fig-height: 4
@@ -1659,7 +1764,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "pdo")
 ```
-
 
 ## NDIF - q3
 
@@ -1684,10 +1788,7 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "pdo")
 ```
 
-
-
 # CUTI
-
 
 ## EPAC - median
 
@@ -1712,7 +1813,6 @@ plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "cuti")
 ```
 
-
 ## EPAC - q3
 
 ```{r}
@@ -1735,7 +1835,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "cuti")
 ```
-
 
 ## TSPIN - median
 
@@ -1760,7 +1859,6 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "cuti")
 ```
 
-
 ## TSPIN - q3
 
 ```{r}
@@ -1784,8 +1882,8 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "cuti")
 ```
 
-
 ## NDIF - median
+
 ```{r}
 #| fig-width: 12
 #| fig-height: 4
@@ -1806,7 +1904,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "cuti")
 ```
-
 
 ## NDIF - q3
 
@@ -1831,10 +1928,7 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "cuti")
 ```
 
-
-
 # BEUTI
-
 
 ## EPAC - median
 
@@ -1859,7 +1953,6 @@ plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "beuti")
 ```
 
-
 ## EPAC - q3
 
 ```{r}
@@ -1882,7 +1975,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "beuti")
 ```
-
 
 ## TSPIN - median
 
@@ -1907,7 +1999,6 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "beuti")
 ```
 
-
 ## TSPIN - q3
 
 ```{r}
@@ -1931,8 +2022,8 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "beuti")
 ```
 
-
 ## NDIF - median
+
 ```{r}
 #| fig-width: 12
 #| fig-height: 4
@@ -1953,7 +2044,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "beuti")
 ```
-
 
 ## NDIF - q3
 
@@ -1978,9 +2068,7 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "beuti")
 ```
 
-
 # SEFI SST Anomalies
-
 
 ## EPAC - median
 
@@ -2005,7 +2093,6 @@ plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "sefi_sst_anomalies")
 ```
 
-
 ## EPAC - q3
 
 ```{r}
@@ -2028,7 +2115,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "sefi_sst_anomalies")
 ```
-
 
 ## TSPIN - median
 
@@ -2053,7 +2139,6 @@ plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "sefi_sst_anomalies")
 ```
 
-
 ## TSPIN - q3
 
 ```{r}
@@ -2076,7 +2161,6 @@ plot_length_combined(
 plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "sefi_sst_anomalies")
 ```
-
 
 ## NDIF - median
 
@@ -2101,7 +2185,6 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "sefi_sst_anomalies")
 ```
 
-
 ## NDIF - q3
 
 ```{r}
@@ -2125,10 +2208,7 @@ plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "sefi_sst_anomalies")
 ```
 
-
-
-# EPAC>Q3 length distribution heatmap
-
+# EPAC\>Q3 length distribution heatmap
 
 ## MOCI
 
@@ -2136,12 +2216,11 @@ plot_length_lag(
 plot_length_heatmap_2mm("EPAC", "q3", "moci")
 ```
 
-
 testing with larger size bins (4mm)
+
 ```{r}
 plot_length_heatmap_4mm("EPAC", "q3", "moci")
 ```
-
 
 ## PDO
 
@@ -2149,13 +2228,11 @@ plot_length_heatmap_4mm("EPAC", "q3", "moci")
 plot_length_heatmap_2mm("EPAC", "q3", "pdo")
 ```
 
-
 ## NPGO
 
 ```{r}
 plot_length_heatmap_2mm("EPAC", "q3", "npgo")
 ```
-
 
 ## CUTI
 
@@ -2163,32 +2240,14 @@ plot_length_heatmap_2mm("EPAC", "q3", "npgo")
 plot_length_heatmap_2mm("EPAC", "q3", "cuti")
 ```
 
-
 ## BEUTI
 
 ```{r}
 plot_length_heatmap_2mm("EPAC", "q3", "beuti")
 ```
 
-
 ## SEFI SST anomalies
 
 ```{r}
 plot_length_heatmap_2mm("EPAC", "q3", "sefi_sst_anomalies")
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
