@@ -1,5 +1,5 @@
 ---
-title: "Euphausiid size variation - link"
+title: "Euphausiid size variation - corrected"
 subtitle: Variation in euphausiid body size in Central California Current 
 author: "Lala M"
 format: html
@@ -156,21 +156,38 @@ Adding climate indices
 ```{r}
 clean_climate <- clean_names(raw_climate) %>%
 
+  filter(!is.na(cruise)) %>%
+  
   mutate(
     cruise = recode(cruise, "ACD1807" = "ACC1807"),
     cruise = recode(cruise, "ACD2206" = "ACC2206"),
     cruise = recode(cruise, "ACM1705" = "ACC1705"),
-    cruise = recode(cruise, "ACM2205" = "ACC2205"))
+    cruise = recode(cruise, "ACM2205" = "ACC2205"),
+  
+    season = case_when(
+             mm %in% c(1, 2, 3) ~ "JFM",
+             mm %in% c(4, 5, 6) ~ "AMJ",
+             mm %in% c(7, 8, 9) ~ "JAS",
+             mm %in% c(10, 11, 12) ~ "OND")) %>%
+   
+   rename(year = yyyy, month = mm) %>%
+  
+   relocate(season, .after = cruise)
 ```
 
 ```{r}
 data_w_climate <- data_w_station %>%
   
   left_join(
-    clean_climate %>% select(cruise, pdo, npgo, cuti, beuti, sefi_sst_anomalies), by = join_by(cruise))
+    clean_climate %>% select(cruise, pdo, npgo, cuti, beuti, sefi_sst_anomalies), 
+    by = join_by(cruise))
 ```
 
-Preparing MOCI dataset, adding mean cen and norcal column to do: whats time column in MOCI dataset
+Preparing MOCI data set
+
+to do: whats time column in MOCI data set
+
+adding lagged moci (cencal) column
 
 ```{r}
 clean_moci <- clean_names(raw_moci) %>%
@@ -180,17 +197,23 @@ clean_moci <- clean_names(raw_moci) %>%
     moci_cencal = central_california_34_5_38n, 
     moci_socal= southern_california_32_34_5n) %>%
   
-  mutate(moci_nc_mean = (moci_norcal + moci_cencal)/2)
+  
+  arrange(year, factor(season, levels = c("JFM", "AMJ", "JAS", "OND"))) %>%
+  mutate(
+    moci_1 = lag(moci_cencal, 1),
+    moci_2 = lag(moci_cencal, 2),
+    moci_3 = lag(moci_cencal, 3))
+ 
 ```
 
-Adding MOCI values for Northern and Central California to main dataset.
+Adding MOCI values for Northern and Central California, and their mean to the main dataset
 
 ```{r}
 data_all <- data_w_climate %>%
   
   left_join(
     clean_moci %>%
-      select(year, season, moci_norcal, moci_cencal, moci_mean = moci_nc_mean),
+      select(year, season, moci = moci_cencal),
     by = c("year", "season"))
 ```
 
@@ -327,7 +350,7 @@ data_meanlen_jar <- data_krill %>%
     is.finite(length_mid),
     is.finite(dens_number)) %>%
   
-  group_by(id_jar, moci_cencal, moci_norcal, species_code, type, dens_jar, line, pdo, npgo) %>%
+  group_by(id_jar, moci, species_code, type, dens_jar, line, pdo, npgo) %>%
   
   summarise(
     mean_length = weighted.mean(length_mid, w = dens_number),
@@ -346,7 +369,7 @@ data_meanlen_cruise <- data_krill %>%
     is.finite(dens_number)) %>%
   
   group_by(
-    year, season, cruise, moci_cencal, moci_norcal, species_code, type, pdo, npgo) %>%
+    year, season, cruise, moci, species_code, type, pdo, npgo) %>%
   
   summarise(
     mean_length = weighted.mean(length_mid, w = dens_number),
@@ -365,7 +388,7 @@ data_meanlen_cruise_species <- data_krill %>%
     is.finite(dens_number)) %>%
   
   group_by(
-    year, season, cruise, moci_cencal, moci_norcal, species_code, pdo, npgo) %>%
+    year, season, cruise, moci, species_code, pdo, npgo) %>%
   
   summarise(
     mean_length = weighted.mean(length_mid, w = dens_number),
@@ -384,7 +407,7 @@ data_meanlen_cruise_species_adult <- data_krill %>%
     is.finite(dens_number)) %>%
   
   group_by(
-    year, season, cruise, moci_cencal, moci_norcal, species_code, pdo, npgo) %>%
+    year, season, cruise, moci, species_code, pdo, npgo) %>%
   
   summarise(
     mean_length = weighted.mean(length_mid, w = dens_number),
@@ -395,7 +418,37 @@ data_meanlen_cruise_species_adult <- data_krill %>%
 
 # Functions
 
-## Datasets
+## Data sets
+
+Creating a data set of climate factors of selected cruises consolidated to seasonal level, so each year-season combination has one row.
+
+```{r}
+ climate_seasonal <- clean_climate %>%
+
+  filter(cruise %in% data_krill$cruise) %>%
+
+  group_by(year, season) %>%
+  summarise(
+    across(where(is.numeric), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop")
+```
+
+Creating a data set of all environmental factors (cencal moci used)
+
+```{r}
+all_env_no2025 <- climate_seasonal %>%
+  left_join(clean_moci %>% select(moci = moci_cencal, moci_1, moci_2, moci_3, year, season),
+               by = c("year", "season")) 
+
+all_env <- all_env_no2025  %>%
+  bind_rows(all_env_no2025, clean_moci %>% 
+          slice(c(158, 159)) %>%
+    select(moci = moci_cencal, moci_1, moci_2, moci_3, year, season))
+```
+
+
+
+
 
 Annual environmental factors:
 
@@ -406,17 +459,11 @@ data_annual_env <- data_krill %>%
   summarise(
     npgo = mean(unique(npgo)),
     pdo = mean(unique(pdo)),
-    moci = mean(unique(moci_cencal)),
+    moci = mean(unique(moci)),
     cuti = mean(unique(cuti)),
     beuti = mean(unique(beuti)),
     sefi_sst_anomalies = mean(unique(sefi_sst_anomalies)),
     .groups = "drop" ) 
-```
-
-```{r}
-check <- data_krill %>%
-  filter(year == "2017") %>%
-  select(cruise, id_jar, pdo, npgo, cuti, beuti, sefi_sst_anomalies)
 ```
 
 creating dataset of annual length median and Q3 of each specie: showing the 50th and 75th percentile of the pooled, equally weighted jar-level length distributions for each species and year.
@@ -439,7 +486,6 @@ length_summary <- data_krill %>%
     frequency = sum(dens_number / dens_species, na.rm = TRUE),
     .groups = "drop" ) %>%
 
-  
   
   arrange(year, species_code, length_mid) %>%
 
@@ -474,16 +520,16 @@ length_sum_cruise <- data_krill %>%
   
   filter(dens_species > 0) %>%
 
-  group_by(cruise, species_code, length_mid, moci_cencal) %>%
+  group_by(cruise, species_code, length_mid, moci) %>%
   summarise(
     frequency = sum(dens_number / dens_species, na.rm = TRUE),
     .groups = "drop" ) %>%
 
   
   
-  arrange(cruise, species_code, length_mid, moci_cencal) %>%
+  arrange(cruise, species_code, length_mid, moci) %>%
 
-  group_by(cruise, species_code, moci_cencal) %>%
+  group_by(cruise, species_code, moci) %>%
   mutate(
     cumulative_frequency = cumsum(frequency),
     total_frequency = sum(frequency, na.rm = TRUE)) %>%
@@ -501,6 +547,38 @@ length_sum_cruise <- data_krill %>%
     left_join(
     clean_climate %>% select(cruise, pdo, pdo_1, pdo_2, pdo_3, npgo, npgo_1, npgo_2, npgo_3, cuti, cuti_1, cuti_2, cuti_3, beuti, beuti_1, beuti_2, beuti_3, sefi_sst_anomalies, sefi_sst_anomalies_1, sefi_sst_anomalies_2, sefi_sst_anomalies_3), by = join_by(cruise)) 
   
+```
+
+Calculating mean of annual and cruise-level median and q3 to use as filters:
+
+```{r}
+quartiles <- 
+  
+  length_summary %>%
+  
+  group_by(species_code) %>%
+  summarise(median_ann = mean(median_length),
+            q3_ann = mean(q3_length), .groups = "drop") %>%
+  
+  
+  left_join(length_sum_cruise %>%
+              group_by(species_code) %>%
+  summarise(median_cruise = mean(median_length),
+            q3_cruise = mean(q3_length), .groups = "drop"), 
+  
+  by = "species_code") %>%
+
+  
+  relocate(median_cruise, .after = median_ann)
+```
+
+defining quartile values for species:
+
+```{r}
+species_size <- list(
+  
+  median = c(EPAC = 10, TSPIN = 11, NDIF = 9),
+  q3     = c(EPAC = 13, TSPIN = 14, NDIF = 12))
 ```
 
 ## Codes
@@ -592,7 +670,7 @@ scale_x_discrete(drop = TRUE)  +
   )}
 ```
 
-## Cruise-level scatter
+### Cruise-level scatter
 
 Cruise level scatter plots (x: env factor, y: length)
 
@@ -682,7 +760,7 @@ stat_cor(
 }
 ```
 
-## Side-by-side
+### Side-by-side
 
 combining bars and scatter:
 
@@ -745,7 +823,7 @@ plot_length_combined <- function(data1, data2, species, metric,
 }
 ```
 
-## Lags scatter
+### Lags scatter
 
 cruise-level scatter plots with monthly lags:
 
@@ -881,10 +959,443 @@ plot_length_lag <- function(data, species, metric, index) {
     )
 }
 ```
+
+### Heatmap
+
+
+heatmap function
+
+
+```{r}
+plot_length_heatmap_2mm <- function(species, size_filter = "median", env_factor) {
+
+  # Select length threshold
+  length_cutoff <- species_size[[size_filter]][[species]]
+
+  # Prepare length data
+   length_df <- data_krill %>%
+   filter(
+      !year %in% c(2005:2008, 2020),
+       species_code == species,
+       length_bin >= length_cutoff) %>%
+     
+   mutate(
+       year = factor(year),
+       length_bin = floor(length_bin / 2) * 2) %>%
+  
+  group_by(year, season, length_bin) %>%
+    summarise(
+       frequency = sum(dens_number / dens_jar, na.rm = TRUE),
+       .groups = "drop") %>%
+     
+  group_by(year, season) %>%
+  mutate(
+    percentage = frequency / sum(frequency, na.rm = TRUE) * 100) %>%
+  ungroup()
+
+   
+  # Select environmental factor
+   env_df <- all_env %>%
+     filter(!year %in% c(2005:2008, 2020)) %>%
+     mutate(year = factor(year)) %>%
+     select(year, season, env_value = all_of(env_factor))
+
+  # Scale environmental line to length-bin axis
+  length_range <- range(length_df$length_bin, na.rm = TRUE)
+  env_range <- range(env_df$env_value, na.rm = TRUE)
+
+  scale_factor <- diff(length_range) / diff(env_range)
+
+  env_df <- env_df %>%
+    mutate(
+      env_scaled = (env_value - env_range[1]) *
+        scale_factor + length_range[1])
+
+  # Plot
+  ggplot(length_df, aes(x = year, y = length_bin)) +
+
+    geom_tile(
+      aes(fill = percentage),
+      width = 0.9,
+      height = 2) +
+
+    geom_line(
+      data = env_df,
+      aes(x = year, y = env_scaled, group = 1),
+      inherit.aes = FALSE,
+      color = "cyan",
+      linewidth = 1,
+      na.rm = TRUE) +
+
+    geom_point(
+      data = env_df,
+      aes(x = year, y = env_scaled),
+      inherit.aes = FALSE,
+      color = "cyan",
+      size = 1.5,
+      na.rm = TRUE) +
+
+    facet_grid(season ~ .) +
+
+    scale_fill_viridis_c(
+      option = "magma",
+      direction = -1,
+      name = "Percentage (%)") +
+
+    scale_y_continuous(
+    
+        breaks = seq(
+        floor(min(length_df$length_bin)),
+        ceiling(max(length_df$length_bin)),
+        by = 2),
+      
+      sec.axis = sec_axis(
+        ~ (. - length_range[1]) / scale_factor + env_range[1],
+        name = toupper(env_factor))) +
+
+    scale_x_discrete(drop = TRUE)  +
+
+    labs(
+      title = paste(species, "Length Distribution (", size_filter, ")"),
+      x = "Year",
+      y = "Length (mm)"
+    ) +
+
+    theme_minimal() +
+
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      strip.text = element_text(face = "bold"),
+      plot.title = element_text(hjust = 0.5) )}
+
+```
+
+```{r}
+plot_length_heatmap_4mm <- function(species, size_filter = "median", env_factor) {
+
+  # Select length threshold
+  length_cutoff <- species_size[[size_filter]][[species]]
+
+  # Prepare length data
+   length_df <- data_krill %>%
+   filter(
+      !year %in% c(2005:2008, 2020),
+       species_code == species,
+       length_bin >= length_cutoff) %>%
+     
+   mutate(
+       year = factor(year),
+       length_bin = floor(length_bin / 4) * 4) %>%
+  
+  group_by(year, season, length_bin) %>%
+    summarise(
+       frequency = sum(dens_number / dens_jar, na.rm = TRUE),
+       .groups = "drop") %>%
+     
+  group_by(year, season) %>%
+  mutate(
+    percentage = frequency / sum(frequency, na.rm = TRUE) * 100) %>%
+  ungroup()
+
+   
+  # Select environmental factor
+   env_df <- all_env %>%
+     filter(!year %in% c(2005:2008, 2020)) %>%
+     mutate(year = factor(year)) %>%
+     select(year, season, env_value = all_of(env_factor))
+
+  # Scale environmental line to length-bin axis
+  length_range <- range(length_df$length_bin, na.rm = TRUE)
+  env_range <- range(env_df$env_value, na.rm = TRUE)
+
+  scale_factor <- diff(length_range) / diff(env_range)
+
+  env_df <- env_df %>%
+    mutate(
+      env_scaled = (env_value - env_range[1]) *
+        scale_factor + length_range[1])
+
+  # Plot
+  ggplot(length_df, aes(x = year, y = length_bin)) +
+
+    geom_tile(
+      aes(fill = percentage),
+      width = 0.9,
+      height = 4) +
+
+    geom_line(
+      data = env_df,
+      aes(x = year, y = env_scaled, group = 1),
+      inherit.aes = FALSE,
+      color = "cyan",
+      linewidth = 1) +
+
+    geom_point(
+      data = env_df,
+      aes(x = year, y = env_scaled),
+      inherit.aes = FALSE,
+      color = "cyan",
+      size = 1.5) +
+
+    facet_grid(season ~ .) +
+
+    scale_fill_viridis_c(
+      option = "magma",
+      direction = -1,
+      name = "Percentage (%)") +
+
+    scale_y_continuous(
+    
+        breaks = seq(
+        floor(min(length_df$length_bin)),
+        ceiling(max(length_df$length_bin)),
+        by = 2),
+      
+      sec.axis = sec_axis(
+        ~ (. - length_range[1]) / scale_factor + env_range[1],
+        name = toupper(env_factor))) +
+
+    scale_x_discrete(drop = TRUE)  +
+
+    labs(
+      title = paste(species, "Length Distribution (", size_filter, ")"),
+      x = "Year",
+      y = "Length (mm)"
+    ) +
+
+    theme_minimal() +
+
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      strip.text = element_text(face = "bold"),
+      plot.title = element_text(hjust = 0.5) )}
+
+```
+
+
+
+
 :::
 
+# Length distribution
 
-# EPAC - median
+Checking body length distribution in each species combined. The frequency by dividing the density in each length bin of each species by the total density of that species in the jar.
+
+```{r}
+length_dist_species <- data_krill %>%
+
+  group_by(id_jar, species_code) %>%
+    mutate(dens_species = sum(dens_number)) %>% 
+  ungroup()%>%
+  
+  
+  group_by(species_code, length_bin) %>%
+     
+    summarise(frequency = sum(dens_number/dens_species, na.rm = TRUE), 
+                .groups = "drop")
+
+
+
+ggplot(length_dist_species,
+       
+  aes(x = length_bin, y = frequency, fill = species_code)) +
+  
+  geom_col(width = 1, color = "black") +
+  
+  facet_wrap(~species_code, scales = "free_y") +
+  
+  scale_fill_manual(values = species_colors) +
+  
+   theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    strip.text = element_text(size = 13)) +
+  
+  labs(
+    x = "Length bin",
+    y = "Frequency",
+    title = "Body length distribution in each species", 
+    subtitle = "based on jar level species size frequency") +
+  
+  
+  guides(fill = "none") +
+  
+  theme_minimal()
+```
+
+Violin plot of length distribution in each year:
+
+```{r}
+length_dist_violin <- data_krill %>%
+
+  group_by(year, id_jar, species_code) %>%
+    mutate(dens_species = sum(dens_number)) %>% 
+  ungroup()%>%
+  
+  
+  group_by(year, species_code, length_bin) %>%
+     
+    summarise(frequency = sum(dens_number/dens_species, na.rm = TRUE), 
+                .groups = "drop")
+
+ggplot(length_dist_violin,
+       aes(x = factor(year), y = length_bin,
+           weight = frequency, fill = species_code)) +
+  geom_violin(alpha = 0.7, quantiles = NULL) +
+  facet_wrap(~ species_code, ncol = 1) +
+  scale_fill_manual(values = species_colors) +
+  
+  theme_minimal() +
+  
+   theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 13)) +
+  
+  labs(
+    x = "Year",
+    y = "Body length (mm)",
+    title = "Annual body length distribution") +
+  
+  
+  guides(fill = "none") 
+  
+```
+
+violin plot of annual length distribution - adults:
+
+```{r}
+length_dist_violin_adult <- data_krill %>%
+  
+  filter(type %in% c("f", "m", "adult")) %>%
+
+  group_by(year, id_jar, species_code) %>%
+    mutate(dens_species = sum(dens_number)) %>% 
+  ungroup()%>%
+  
+  
+  group_by(year, species_code, length_bin) %>%
+     
+    summarise(frequency = sum(dens_number/dens_species, na.rm = TRUE), 
+                .groups = "drop")
+```
+
+```{r}
+ggplot(length_dist_violin_adult %>% filter(species_code == "EPAC"),
+       aes(x = factor(year), y = length_bin,
+           weight = frequency, fill = species_code)) +
+  geom_violin(alpha = 0.7, quantiles = NULL) +
+  scale_fill_manual(values = species_colors) +
+  
+  theme_minimal()+
+  
+  
+   theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 13)) +
+  
+  labs(
+    x = "Year",
+    y = "Body length (mm)",
+    title = "EPAC annual body length distribution") +
+  
+  
+  guides(fill = "none")
+  
+```
+
+```{r}
+ggplot(length_dist_violin_adult %>% 
+         filter(species_code == "TSPIN") %>%
+             group_by(year) %>%
+             filter(n() >= 2) %>%
+             ungroup(),
+       aes(x = factor(year), y = length_bin,
+           weight = frequency, fill = species_code)) +
+  geom_violin(alpha = 0.7, quantiles = NULL) +
+  scale_fill_manual(values = species_colors) +
+  labs(
+    x = "Year",
+    y = "Body length (mm)"
+  ) +
+  theme_minimal()+
+
+   theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 13)) +
+  
+  labs(
+    x = "Year",
+    y = "Body length (mm)",
+    title = "TSPIN annual body length distribution") +
+  
+  
+  guides(fill = "none")
+```
+
+```{r}
+ggplot(length_dist_violin_adult %>% 
+         filter(species_code == "NDIF") %>%
+             group_by(year) %>%
+             filter(n() >= 2) %>%
+             ungroup(),
+       aes(x = factor(year), y = length_bin,
+           weight = frequency, fill = species_code)) +
+  geom_violin(alpha = 0.7, quantiles = NULL) +
+  scale_fill_manual(values = species_colors) +
+
+  theme_minimal()+
+  
+   theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 14),
+    strip.text = element_text(size = 13)) +
+  
+  labs(
+    x = "Year",
+    y = "Body length (mm)",
+    title = "NDIF annual body length distribution") +
+
+  
+  guides(fill = "none")
+  
+```
+
+# MOCI
+
+## EPAC - median
+
+## EPAC - q3
+
+## TSPIN - median
+
+## TSPIN - q3
+
+## NDIF - median
+
+## NDIF - q3
+
+
+# NPGO
+
+## EPAC - median
 
 ```{r}
 #| fig-width: 12
@@ -900,98 +1411,15 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "EPAC", "median_length", "npgo")
 ```
 
-```{r}
-#| fig-width: 12
-#| fig-height: 4
 
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "pdo")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "median_length", "pdo")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "cuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "median_length", "cuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "beuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "median_length", "beuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "sefi_sst_anomalies")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "median_length", "sefi_sst_anomalies")
-```
-
-# EPAC - Q3
+## EPAC - q3
 
 ```{r}
 #| fig-width: 12
@@ -1007,98 +1435,15 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "EPAC", "q3_length", "npgo")
 ```
 
-```{r}
-#| fig-width: 12
-#| fig-height: 4
 
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "pdo")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "q3_length", "pdo")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "cuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "q3_length", "cuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "beuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "q3_length", "beuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "EPAC",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "sefi_sst_anomalies")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "EPAC", "q3_length", "sefi_sst_anomalies")
-```
-
-# TSPIN - median
+## TSPIN - median
 
 ```{r}
 #| fig-width: 12
@@ -1114,98 +1459,15 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "TSPIN", "median_length", "npgo")
 ```
 
-```{r}
-#| fig-width: 12
-#| fig-height: 4
 
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "pdo")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "median_length", "pdo")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "cuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "median_length", "cuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "beuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "median_length", "beuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "sefi_sst_anomalies")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "median_length", "sefi_sst_anomalies")
-```
-
-# TSPIN - Q3
+## TSPIN - q3
 
 ```{r}
 #| fig-width: 12
@@ -1221,99 +1483,15 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "TSPIN", "q3_length", "npgo")
 ```
 
-```{r}
-#| fig-width: 12
-#| fig-height: 4
 
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "pdo")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "q3_length", "pdo")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "cuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "q3_length", "cuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "beuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "q3_length", "beuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "TSPIN",
-  metric = "q3_length",
-  env_data = data_annual_env,
-  env_var = "sefi_sst_anomalies")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "TSPIN", "q3_length", "sefi_sst_anomalies")
-```
-
-# NDIF - median
-
+## NDIF - median
 ```{r}
 #| fig-width: 12
 #| fig-height: 4
@@ -1328,98 +1506,15 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "median_length", "npgo")
 ```
 
-```{r}
-#| fig-width: 12
-#| fig-height: 4
 
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "NDIF",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "pdo")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "NDIF", "median_length", "pdo")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "NDIF",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "cuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "NDIF", "median_length", "cuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "NDIF",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "beuti")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "NDIF", "median_length", "beuti")
-```
-
-```{r}
-#| fig-width: 12
-#| fig-height: 4
-
-plot_length_combined(
-  data1 = length_summary,
-  data2 = length_sum_cruise,
-  species = "NDIF",
-  metric = "median_length",
-  env_data = data_annual_env,
-  env_var = "sefi_sst_anomalies")
-```
-
-```{r}
-#| fig-width: 8
-#| fig-height: 12
-
-plot_length_lag(
-  length_sum_cruise, "NDIF", "median_length", "sefi_sst_anomalies")
-```
-
-# NDIF - Q3
+## NDIF - q3
 
 ```{r}
 #| fig-width: 12
@@ -1435,12 +1530,138 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "npgo")
 ```
+
+
+
+# PDO
+
+
+## EPAC - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "pdo")
+```
+
+
+## EPAC - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "pdo")
+```
+
+
+## TSPIN - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "pdo")
+```
+
+
+## TSPIN - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "pdo")
+```
+
+
+## NDIF - median
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "pdo")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "pdo")
+```
+
+
+## NDIF - q3
 
 ```{r}
 #| fig-width: 12
@@ -1456,12 +1677,138 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "pdo")
 ```
+
+
+
+# CUTI
+
+
+## EPAC - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "cuti")
+```
+
+
+## EPAC - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "cuti")
+```
+
+
+## TSPIN - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "cuti")
+```
+
+
+## TSPIN - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "cuti")
+```
+
+
+## NDIF - median
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "cuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "cuti")
+```
+
+
+## NDIF - q3
 
 ```{r}
 #| fig-width: 12
@@ -1477,12 +1824,138 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "cuti")
 ```
+
+
+
+# BEUTI
+
+
+## EPAC - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "beuti")
+```
+
+
+## EPAC - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "beuti")
+```
+
+
+## TSPIN - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "beuti")
+```
+
+
+## TSPIN - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "beuti")
+```
+
+
+## NDIF - median
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "beuti")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "beuti")
+```
+
+
+## NDIF - q3
 
 ```{r}
 #| fig-width: 12
@@ -1498,12 +1971,138 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "beuti")
 ```
+
+
+# SEFI SST Anomalies
+
+
+## EPAC - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "median_length", "sefi_sst_anomalies")
+```
+
+
+## EPAC - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "EPAC",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "EPAC", "q3_length", "sefi_sst_anomalies")
+```
+
+
+## TSPIN - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "median_length", "sefi_sst_anomalies")
+```
+
+
+## TSPIN - q3
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "TSPIN",
+  metric = "q3_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "TSPIN", "q3_length", "sefi_sst_anomalies")
+```
+
+
+## NDIF - median
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+plot_length_combined(
+  data1 = length_summary,
+  data2 = length_sum_cruise,
+  species = "NDIF",
+  metric = "median_length",
+  env_data = data_annual_env,
+  env_var = "sefi_sst_anomalies")
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 12
+
+plot_length_lag(
+  length_sum_cruise, "NDIF", "median_length", "sefi_sst_anomalies")
+```
+
+
+## NDIF - q3
 
 ```{r}
 #| fig-width: 12
@@ -1519,9 +2118,77 @@ plot_length_combined(
 ```
 
 ```{r}
-#| fig-width: 8
+#| fig-width: 6
 #| fig-height: 12
 
 plot_length_lag(
   length_sum_cruise, "NDIF", "q3_length", "sefi_sst_anomalies")
 ```
+
+
+
+# EPAC>Q3 length distribution heatmap
+
+
+## MOCI
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "moci")
+```
+
+
+testing with larger size bins (4mm)
+```{r}
+plot_length_heatmap_4mm("EPAC", "q3", "moci")
+```
+
+
+## PDO
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "pdo")
+```
+
+
+## NPGO
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "npgo")
+```
+
+
+## CUTI
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "cuti")
+```
+
+
+## BEUTI
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "beuti")
+```
+
+
+## SEFI SST anomalies
+
+```{r}
+plot_length_heatmap_2mm("EPAC", "q3", "sefi_sst_anomalies")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
